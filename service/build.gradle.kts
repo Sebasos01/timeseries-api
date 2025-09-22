@@ -1,31 +1,47 @@
 plugins {
-    id("org.springframework.boot") version "3.3.3"
-    id("io.spring.dependency-management") version "1.1.5"
-    java
+  id("org.springframework.boot") version "3.5.6"
+  id("io.spring.dependency-management") version "1.1.6"
+  java
 }
 
-group = "com.isi.timeseries"
+group = "app"
 version = "0.0.1-SNAPSHOT"
 
 java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-    }
+  toolchain {
+    languageVersion.set(JavaLanguageVersion.of(21))
+  }
 }
 
 repositories {
-    mavenCentral()
+  mavenCentral()
 }
 
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-web")
+  implementation("org.springframework.boot:spring-boot-starter-web")
+  implementation("org.springframework.boot:spring-boot-starter-validation")
+  implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+  implementation("org.springframework.boot:spring-boot-starter-jdbc")
+  implementation("org.postgresql:postgresql")
 
-    runtimeOnly("org.postgresql:postgresql")
+  implementation("org.springframework.boot:spring-boot-starter-actuator")
+  implementation("io.micrometer:micrometer-registry-prometheus")
+  implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
+  implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.12")
+  implementation("io.github.resilience4j:resilience4j-spring-boot3:2.3.0")
+  implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-csv")
+
+  runtimeOnly("org.flywaydb:flyway-core")
+  runtimeOnly("org.flywaydb:flyway-database-postgresql")
+
+  testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+  testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.3"))
+  testImplementation("org.testcontainers:junit-jupiter")
+  testImplementation("org.testcontainers:postgresql")
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+tasks.test {
+  useJUnitPlatform()
 }

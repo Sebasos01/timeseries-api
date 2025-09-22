@@ -68,3 +68,23 @@ Key endpoints once the stack is healthy:
 - (Profile) Jaeger UI: http://localhost:16686
 
 Use `make up`, `make down`, `make logs`, or `make ps` from the repo root as shortcuts for the same compose operations.
+
+## Spring Boot service
+
+Run the service locally when iterating without Docker:
+
+```
+cd service
+./gradlew bootRun
+```
+
+Key endpoints while the application is running:
+
+- http://localhost:8080/ (service banner)
+- http://localhost:8080/v1/ping
+- http://localhost:8080/actuator/health
+- http://localhost:8080/actuator/prometheus
+- http://localhost:8080/v3/api-docs
+- http://localhost:8080/swagger-ui.html
+
+Set `AUTH_ENABLED=true` and point `OAUTH_JWKS_URI` at a JWKS endpoint to require JWTs; leave the toggle off for local hacking.

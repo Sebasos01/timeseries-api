@@ -1,1 +1,1 @@
-rootProject.name = "timeseries-service"
+rootProject.name = "ts-service"
