@@ -1,0 +1,465 @@
+Implementation Guide: High‑Performance Time Series Data API (Java Backend with Node.js Frontend)
+Overview and Objectives
+This guide outlines a production-grade design and implementation for a Time Series Data API, inspired by real-world systems like CEIC/EMIS. The goal is to enable clients to search, retrieve, and analyze time series data (e.g. economic indicators, financial metrics) efficiently and securely. We will use a Java backend for core API logic and a Node.js frontend layer (as a façade or gateway) similar to CEIC’s architecture. The solution emphasizes clean design, performance, and maintainability while meeting high scalability and security standards.
+Key objectives:
+    • Functional: Provide endpoints to search millions of time series by metadata, get detailed series info, and retrieve time-indexed data with filtering (date ranges, frequency conversion, transformations, etc.). Support bulk data access and rich metadata (name, units, frequency, etc.).
+    • Non-Functional: Ensure low-latency responses, high throughput (able to serve many concurrent requests), and high availability. Emphasize security (authentication, authorization, encryption), reliability, and quality attributes like scalability, resiliency, and observability (detailed below).
+By following this guide, a developer can build a robust API that developers love to use – RESTful, intuitive, and performant[1][2] – ready to run locally or in cloud (AWS-ready), with proper configuration management and deployment practices.
+High-Level Architecture
+Component Overview: We design the system in a layered architecture with clear separation of concerns:
+    • Java Backend Service (API Layer): Implements the core REST API (business logic, data access). This is the primary service handling requests for time series data. It will expose endpoints under a versioned path (e.g. /v1/...) and handle all heavy lifting – query processing, computations (transforms), database interactions, etc.
+    • Node.js Frontend (Gateway/BFF): Acts as an API gateway or facade[3] for client requests. In CEIC’s case, Node.js often serves their web front-end and may also proxy API calls. Our Node layer will handle responsibilities such as request routing, authentication verification (e.g. API keys or tokens), rate limiting, and possibly caching. It can forward requests to the Java service and aggregate results if needed (especially useful if integrating multiple backend services or brands). This keeps the Java service focused on data logic and allows flexibility in presenting data to different clients (web, SDKs, etc).
+    • Database and Storage: A time-series optimized data store forms the persistence layer. We’ll consider a relational database (for strong consistency and complex querying) enhanced for time-series performance, possibly PostgreSQL with TimescaleDB extension or a similar solution. This stores both the series metadata (ID, name, description, frequency, units, etc.) and the time-indexed values for each series. In addition, a search index (e.g. Elasticsearch) will be used to handle full-text search of series names/descriptions efficiently.
+    • Caching Layer: To achieve low latency at scale, a caching mechanism (like Redis or an in-memory cache) may be introduced for frequently accessed data (e.g. popular series or recent query results). This can be integrated at the Node layer (for example, caching HTTP responses or query results) or at the Java service (caching database query results in memory), or both.
+    • External Interface: Consumers (which could be external clients, or internal front-ends like CEIC’s web app) will interact with the API via HTTPS. All traffic goes through the Node.js gateway (which can live at api.company.com), which then calls the Java service (internal network call or local function call if co-hosted). This separation allows enforcement of security and API management policies at the gateway.
+Diagram (Conceptual):
+Client (Web or SDK) --> [Node.js API Gateway] --> [Java TimeSeries Service] --> [Database + Search Index]
+                             |-- Auth & Rate Limit --|      |-- Queries to DB/Elastic --|
+    • Node.js API Gateway: verifies auth, limits, then forwards to appropriate internal API.
+    • Java Service: processes request, queries the DB (or Elastic for search), applies business logic, returns JSON.
+    • Database: stores time series data (optimized for time queries).
+    • Search Index: for text search of series metadata (keyword queries).
+This architecture supports scalability by allowing each component to scale independently (e.g., multiple Java service instances behind a load balancer, multiple Node instances for front-end, a DB cluster or read replicas, etc.). It also fits the API Façade pattern: we design an ideal public API and have an internal implementation decoupled from external concerns[3].
+Data Model and Storage Design
+Time Series Data Model
+We define a clear data model for our domain:
+    • Series – entity representing a time series. Key fields:
+    • series_id (string or UUID): Unique identifier for the series (e.g. "BR.GDP.REAL.Q.SA" for Brazil Real GDP). This is the primary key and stable reference used in the API URLs.
+    • name: Human-readable name (e.g. "Brazil Real GDP, Seasonally Adjusted").
+    • frequency: Data frequency (e.g. Annual, Quarterly, Monthly, Daily). Use an enum for standard frequencies (A, Q, M, W, D) for clarity and type safety instead of magic strings[1]. For example, an enum Frequency { ANNUAL, QUARTERLY, MONTHLY, WEEKLY, DAILY }.
+    • unit: Unit of measure (e.g. "BRL Millions 2015" for constant price GDP).
+    • geography or country: if applicable, a code to represent region (e.g. "BR" for Brazil). Similarly use controlled vocabularies or enums where possible (to avoid inconsistent strings).
+    • description / metadata: Additional info like source, notes, seasonal adjustment flag, etc.
+    • start_date and end_date: Range of available data.
+    • last_update: Timestamp of last data update (for cache invalidation and user info).
+    • Data Point – a value at a point in time. Represented as:
+    • series_id (foreign key to Series).
+    • date (or date-time): The time index.
+    • value: The numeric value (could be float/double). Use numeric type that can handle the needed precision (e.g. DECIMAL for financial data, or DOUBLE for most economic data).
+    • (Optional) revision_id or as_of: If supporting revisions/Point-in-Time, include a revision dimension. One approach is a separate revision table or including valid_from/valid_to timestamps to each data point. For simplicity, we might store multiple values for the same date with different revision timestamps. The as_of query param will filter the appropriate version (more on this later).
+Using proper types and structures is crucial. Avoid using ambiguous codes or “magic numbers” for things like frequency or adjustment flags – instead use self-documenting enums/constants[4][1] so the code clearly conveys meaning (e.g., frequency = Frequency.QUARTERLY rather than frequency = "Q" deep in the code).
+Database Choice and Schema
+For a production solution, we choose a database optimized for time-series data and analytical queries:
+    • Relational DB (PostgreSQL + TimescaleDB): A conventional but powerful choice. TimescaleDB (a PostgreSQL extension) partitions data by time for efficiency and offers fast time-range queries and compression. It retains SQL’s flexibility and ACID guarantees (important for data integrity and updates)[5]. This is a proven, production-ready approach used in many time-series systems.
+    • Alternatively, columnar stores or NoSQL could be considered for massive scale:
+    • ClickHouse (columnar analytics DB) for extremely fast reads on large data volumes.
+    • Cassandra/ScyllaDB (NoSQL wide-column) for high write throughput and distributed scaling – but queries are less flexible (requires designing keys for known query patterns).
+    • InfluxDB or MongoDB time-series collections – specialized TSDB, though in enterprise financial data, PostgreSQL is more commonly used due to consistency needs.
+    • Given our use case (economic/financial data, updated perhaps daily/weekly and read frequently), PostgreSQL with proper indexing is an excellent choice for reliability and familiarity. We can implement table partitioning by series or time if needed and use indexes on (series_id, date) to accelerate lookups by series and date range.
+Schema design (relational example):
+-- Series metadata table
+CREATE TABLE series (
+    series_id    VARCHAR(100) PRIMARY KEY,
+    name         TEXT NOT NULL,
+    frequency    VARCHAR(1) NOT NULL,   -- e.g. 'A','Q','M','W','D' (could use a lookup table or enum)
+    unit         TEXT,
+    geography    VARCHAR(10),
+    description  TEXT,
+    source       TEXT,
+    is_adjusted  BOOLEAN,              -- e.g. seasonally adjusted flag
+    start_date   DATE,
+    end_date     DATE,
+    last_update  TIMESTAMP
+);
+-- Data points table (could be partitioned by series_id or by year for performance)
+CREATE TABLE series_data (
+    series_id  VARCHAR(100) NOT NULL,
+    date       DATE NOT NULL,
+    value      DOUBLE PRECISION,
+    PRIMARY KEY(series_id, date),
+    FOREIGN KEY(series_id) REFERENCES series(series_id)
+);
+-- If supporting revisions, either extend series_data or use a separate table for historical versions:
+CREATE TABLE series_data_history (
+    series_id   VARCHAR(100) NOT NULL,
+    date        DATE NOT NULL,
+    value       DOUBLE PRECISION,
+    revision_time TIMESTAMP NOT NULL,   -- when this value was superseded or recorded
+    PRIMARY KEY(series_id, date, revision_time),
+    FOREIGN KEY(series_id) REFERENCES series(series_id)
+);
+In this design, series_data holds the latest values, and series_data_history could store past revisions (if needed). Queries with an as_of date would retrieve data from the appropriate table/join.
+Indexing and Query Performance: The primary key on (series_id, date) means the data is clustered by series, which is ideal – all data points for a series will be located close together on disk. This yields fast range scans for a given series (which is our typical access pattern). Additional indexes can support other queries if needed (e.g., an index on date alone if we needed to query across series for a specific date, though that’s less common in this API).
+If using TimescaleDB, we’d define a hypertable partitioned by time (and possibly by series_id as a space partition) to automatically manage chunking and indexing. This can drastically improve large-scale performance (Timescale has shown 100x+ faster time-range queries by partitioning and parallelizing them[6]).
+Search Index: In addition to the relational store, we deploy an Elasticsearch cluster (or OpenSearch) to handle full-text search on series metadata. This is because clients will often search by keywords in series names or descriptions (e.g. “real GDP Brazil”). Rather than doing slow SQL LIKE queries on millions of records, Elastic can index text fields and provide powerful search (including fuzzy matching, relevancy scoring, filters by fields like geography or frequency). We will synchronize the series table with the search index (e.g., updating the index on data updates or rebuilding nightly). The /series/search API will query Elasticsearch and return matching series IDs which the Java service can then use to get detailed info from the DB (or the index can store enough info to return directly).
+Data Volume and Partitioning: With potentially millions of series and years of data[7], we ensure our DB is partitioned and tuned: - Each series’s data could be stored in a separate partition or table (Timescale does this transparently) to improve insert/update and select performance. - We can also partition by time (year or decade) to manage very long histories. - We will utilize efficient queries that push filters to the DB (e.g., only select needed date range, rather than fetching all and slicing in code). - Batch operations are used for loading or updating data (minimize row-by-row updates).
+Data Access Patterns
+Common queries our API must handle and how we optimize them: - Get series by ID (metadata) – a simple primary key lookup on series table (very fast, O(log n)). We can also cache popular series metadata in memory to serve this with almost zero latency. - Search series by text – handled by Elasticsearch. We might also have secondary filters like country or frequency (country=BR&freq=Q), which the search query can incorporate (indexed fields). Elastic returns a list of series IDs ranked by relevance[8], which we then retrieve metadata for (perhaps by bulk querying the SQL DB or storing a copy of needed fields in the index for direct return). - Retrieve data points for series (time range) – a parameterized SQL query on series_data with WHERE series_id = ? AND date BETWEEN ? AND ? which uses the index. This results in a sequential range scan which is very fast on a clustered index. We ensure only necessary columns are selected (just date and value) to reduce I/O. - Retrieve data with frequency conversion or transformations – the Java service will handle these (after getting raw data) to keep the DB queries simple and cacheable. However, for some simple aggregations (like annualizing monthly data) we might leverage SQL GROUP BY if beneficial. The decision is case-by-case; often doing it in code gives more flexibility (and our data volumes per series are not so huge as to require pushing computation to the DB).
+Caching Strategy: We identify opportunities for caching: - Metadata cache: Series metadata changes infrequently, so it can be cached at the service or gateway (e.g., an in-memory map or a distributed cache keyed by series_id). We’ll use an LRU cache or similar to store recently accessed series info. - Data cache: If certain series data is requested very often (e.g., a key economic indicator), we might cache the latest full series dataset or recent portions. However, since data can update, we must invalidate or version caches on updates (using last_update timestamp or an ETag). - We also leverage HTTP caching headers for client-side caching. For instance, when returning series data, include Last-Modified: <last_update> and an ETag based on content. This allows clients to do conditional GETs (If-None-Match / If-Modified-Since) and our API can return 304 Not Modified if data hasn’t changed[9]. This reduces unnecessary data transfer and load.
+API Design (RESTful Endpoints)
+Following REST best practices, we design resource-oriented endpoints using nouns (not action verbs)[1]. All endpoints will be under a common path (e.g. /api or directly at root) with a version prefix for versioning (e.g. /v1/). We use plural nouns for collections and singular for single-resource URLs[1]. HTTP methods define the action (GET for retrieve, POST for create if needed, etc.).
+Key endpoints:
+1. Search for Series
+    • Endpoint: GET /v1/series with query parameters for filtering, or GET /v1/series/search
+    • Description: Find series by keywords and filters. This returns a paginated list of series that match criteria.
+    • Query Parameters:
+    • q (string, optional): Search query (keywords to match in name/description)[10].
+    • Filter params like country (or geography), freq (frequency), source, etc., to narrow the search.
+    • Pagination: page (1-indexed or 0-indexed) and page_size (or limit & offset[11]). E.g., GET /v1/series?q=GDP&country=BR&freq=Q&limit=50&offset=0.
+    • Response: List of series summaries. Each item might include series_id, name, maybe a brief description or country field. We keep the payload light for performance. If the result set is large, we include pagination info (total, next_page link, etc.). Example:
+{
+  "results": [
+    { "series_id": "BR.GDP.REAL.Q.SA", "name": "Brazil Real GDP, SA", "frequency": "Q", "country": "BR" },
+    { "series_id": "US.GDP.REAL.Q.NSA", "name": "United States Real GDP, NSA", "frequency": "Q", "country": "US" }
+  ],
+  "total": 124,
+  "page": 1,
+  "page_size": 50,
+  "next_page": "/v1/series?q=GDP&country=BR&freq=Q&limit=50&offset=50"
+}
+This design follows the idea of keeping search separate and using query params for filtering complexity (instead of deeply nested URLs)[2]. We also choose to implement search via GET for simplicity (idempotent, cacheable). If the search logic were extremely complex or required a request body, we could use a POST /series/search endpoint, but here query params suffice.
+2. Retrieve Series Metadata
+    • Endpoint: GET /v1/series/{series_id}
+    • Description: Get detailed metadata for a single series (no time points, just descriptive info). This includes all fields like name, full description, source, available date range, units, etc.
+    • Response: JSON object with series fields. Example:
+{
+  "series_id": "BR.GDP.REAL.Q.SA",
+  "name": "Brazil Real GDP, Seasonally Adjusted",
+  "frequency": "Q",
+  "unit": "BRL Millions (2015 prices)",
+  "country": "BR",
+  "source": "IBGE",
+  "description": "Brazil's inflation-adjusted GDP in millions of 2015 BRL, quarterly, SA.",
+  "start_date": "1996-03-31",
+  "end_date": "2025-06-30",
+  "last_update": "2025-08-20T12:00:00Z"
+}
+If a series is not found, we return a 404 Not Found with a JSON error payload explaining the error[9].
+3. Retrieve Series Data (Time Points)
+    • Endpoint: GET /v1/series/{series_id}/data
+    • Description: Retrieve the time-series values for the given series, with optional parameters to refine the output.
+    • Query Parameters:
+    • start: start date (e.g. start=2010-01-01)
+    • end: end date
+    • as_of: a date for point-in-time data (revision cutoff). If provided, we return the series values as they were on that date, i.e., excluding any revisions published after as_of. If not provided, defaults to latest data[12][13].
+    • freq: desired frequency of output. By default, freq=native (no resampling). If set to another frequency (D, W, M, Q, A), the API will resample the data to that frequency. We define clear rules (e.g., if aggregating from higher to lower frequency, which aggregation function to use – sum, average, last, etc., possibly configurable).
+    • transform: any data transformation to apply. E.g., yoy (year-over-year percent change), pct_change (period-over-period percent change), diff (difference), cumul (cumulative), etc. A special value as_is (default) means no transform.
+    • fill: missing data fill method. Options: none (no filling – some periods might be missing if not in source), ffill (forward-fill last known value), bfill (backward-fill), or zero/null fill.
+    • format: (optional) if the client wants CSV or another format. By default, JSON will be returned. We could support format=csv or use the Accept header (e.g., Accept: text/csv).
+    • Response: JSON object containing the series metadata (at least series_id, maybe name and unit for clarity), the parameters that were applied (echoing back the actual freq or transform used), and the data points array. We keep data as an array of [time, value] pairs for compactness. Example:
+{
+  "series_id": "BR.GDP.REAL.Q.SA",
+  "name": "Brazil Real GDP, SA",
+  "freq": "Q",
+  "unit": "BRL_MILLIONS_2015",
+  "as_of": "2024-09-01",
+  "transform": "yoy",
+  "fill": "ffill",
+  "points": [
+    ["2019-03-31", 0.8],
+    ["2019-06-30", 1.1],
+    ...
+    ["2024-06-30", 2.3]
+  ],
+  "metadata": {
+    "country": "BR",
+    "source": "IBGE",
+    "coverage_start": "1996-03-31",
+    "last_update": "2025-08-20"
+  }
+}
+This example shows year-on-year growth (transform=yoy) was applied to the quarterly data[8]. The API included key metadata for context. Note we chose ISO date strings for dates and a straightforward numeric for values. (We avoid exposing internal numeric precision issues – e.g., if using DECIMAL, format as number or string accordingly.)
+If the series is not found, 404. If the client requests an invalid frequency or transform, we return 400 Bad Request with an error message. We use standard HTTP codes (200 for success, 400 for client error, 401/403 for auth issues, 500 for server error, etc.) and include a descriptive JSON error body as recommended[9]:
+{ 
+  "error": "Invalid frequency code. Supported values: D,W,M,Q,A.", 
+  "errorCode": 1002,
+  "moreInfo": "https://developers.company.com/docs/errors/1002"
+}
+4. Bulk Data Retrieval
+For use cases where users want many series or a large amount of data in one go (e.g., downloading an entire database or running batch analytics), we provide a bulk endpoint. This is often done asynchronously to avoid timeouts and to protect system throughput.
+    • Endpoint: POST /v1/series/batch (synchronous for moderate requests) and/or POST /v1/exports (to initiate an async job for very large requests).
+    • Description:
+    • The batch endpoint could accept a JSON body with a list of series IDs and optional global params (or per-series params) and return data for all requested series in one response. This is useful to reduce the number of API calls (avoiding “chatty” usage when clients need many series at once)[14]. The response might contain a dictionary of series_id to data (or an array of series objects each containing its points).
+    • The exports endpoint would create a background job (maybe storing a CSV file in cloud storage). It returns immediately with a job ID, and the client can poll a GET /v1/exports/{job_id} to see if it's ready (and get a download URL). This approach is used for delivering very large datasets without holding an HTTP connection open. For example, a client could request all series for a country in one file.
+    • Response: For the simple batch (if small enough to handle synchronously), directly return a JSON with multiple series:
+    • {
+  "series": [
+    { "series_id": "X", "points": [ ... ], "unit": "...", ... },
+    { "series_id": "Y", "points": [ ... ], ... }
+  ]
+}
+    • For an async export, return a job resource:
+    • { "job_id": "12345", "status": "running", "estimated_time_sec": 30 }
+    • Then GET /v1/exports/12345 might later return:
+    • { "job_id": "12345", "status": "completed", "download_url": "https://.../12345.csv" }
+5. Other Endpoints and Considerations
+    • Authentication & Keys: We will have endpoints for obtaining API tokens or using OAuth if applicable (details in Security section). Possibly POST /v1/auth/token for OAuth2 client credentials, etc., or a mechanism to provision API keys.
+    • Health Check: A simple GET /health (or /v1/health) that returns 200 OK if the service is up. This helps with load balancer health checks and devops monitoring.
+    • Metrics Endpoint: (if not protected, maybe on a separate admin port) something like /metrics for Prometheus to scrape, exposing internal metrics of the service. This is not public for clients but for operations.
+We ensure consistent design across endpoints: - Use plural nouns for collection URLs (e.g. /series) and singular for specific resources (/series/{id})[1]. - Concrete names: we use series rather than a generic term like data or something abstract[1]. - Avoid deeply nested routes: e.g. we don’t do /country/BR/freq/Q/series/... – instead we use query params for country and freq filters as shown, which is simpler and more flexible[2]. - Leverage HTTP features: status codes, caching headers, content negotiation, etc., rather than reinventing them.
+Versioning: The API version is included in the URL (/v1/). This makes it obvious and mandatory[15]. Backwards-incompatible changes will go into /v2/ in the future, while minor additions can be done in v1 without breaking clients. We will document version changes and support old versions for a deprecation period.
+Formats: JSON is the default response format (as it’s widely used and less verbose than XML)[16]. We also support CSV output for data retrieval, as many analysts appreciate CSV for bulk downloads. Format can be specified via the Accept header or an explicit format parameter[8]. For example, Accept: text/csv on the /data endpoint would yield a CSV with columns like Date, Value. JSON fields use camelCase naming (following JavaScript conventions)[17] – e.g. seriesId, lastUpdate – for consistency with common JSON style.
+Search Endpoint Note: We follow the recommended practice for search: since search is not exactly a resource but an action across resources, some APIs use a verb or a separate path like /search. We have the option to do GET /v1/search?q=...&scope=series or simply treat it as /v1/series with query. To make it intuitive, we might actually implement GET /v1/series to list series (with filters doubling as search), and also allow GET /v1/search as a convenience that searches across multiple resource types. For now, focusing on series, we stick to the /series context and q param[18].
+API Discoverability and SDKs: We'll publish an OpenAPI (Swagger) specification for this API. This precisely defines endpoints, parameters, responses, and error formats. From this spec we can auto-generate SDKs or clients in various languages (as ISI does for Python, R, etc.)[8]. Providing an official Python SDK (with pandas DataFrame support) or other language bindings greatly improves DX (Developer Experience), letting users integrate faster[19]. Code samples and a developer portal with documentation and a playground will accompany the API (the Node frontend can serve these docs, and handle things like user API key management).
+Backend Implementation (Java Service)
+We will implement the backend using Java 17+ (a stable LTS release with modern features). The framework of choice is Spring Boot for rapid development of RESTful services, given its productivity and ecosystem (Spring MVC for REST, Spring Data for DB access, etc.). The choice aligns with production setups and offers integration with security (Spring Security), metrics (Micrometer), etc., out-of-the-box. That said, any lightweight framework (Micronaut, Quarkus, Javalin) could also work if we prioritize minimal footprint – but Spring’s conventional structure is suitable here and familiar to many developers.
+Project structure will follow a clean architecture approach: - Controller layer (Web layer): Spring @RestController classes to handle HTTP requests, parse inputs, and return responses (as JSON). These controllers should be thin, delegating to services. - Service layer: classes containing business logic (e.g., TimeSeriesService that knows how to fetch data, apply transforms, etc.). This layer orchestrates between the repository (data access) and any processing needed. - Repository (DAO) layer: for database access. We can use Spring Data JPA for quick mapping of entities, or Spring JdbcTemplate for fine-tuned queries. For read-heavy scenarios like this, a hybrid is possible: use JPA for metadata and simple CRUD, but use JDBC for the critical path of fetching time-series points (to stream results and avoid the overhead of mapping thousands of values to entities). - Models/Entities: Define Java classes for Series and DataPoint (these can be JPA entities matching the DB schema). We may also define DTOs for API responses if we want to decouple from internal entities (to shape the JSON as needed). Using Lombok or Java’s record types can reduce boilerplate here.
+Example: Controller and Service for Data Endpoint
+@RestController
+@RequestMapping("/v1/series")
+public class SeriesController {
+
+    private final TimeSeriesService seriesService;
+
+    public SeriesController(TimeSeriesService seriesService) {
+        this.seriesService = seriesService;
+    }
+
+    @GetMapping("/{seriesId}/data")
+    public ResponseEntity<SeriesDataResponse> getSeriesData(
+            @PathVariable String seriesId,
+            @RequestParam(required = false) String start,
+            @RequestParam(required = false) String end,
+            @RequestParam(required = false) String as_of,
+            @RequestParam(defaultValue = "native") String freq,
+            @RequestParam(defaultValue = "as_is") String transform,
+            @RequestParam(defaultValue = "none") String fill) {
+
+        // 1. Validate inputs (e.g., date formats, enum values for freq/transform/fill)
+        LocalDate startDate = (start != null) ? LocalDate.parse(start) : null;
+        LocalDate endDate   = (end != null)   ? LocalDate.parse(end)   : null;
+        LocalDate asOfDate  = (as_of != null) ? LocalDate.parse(as_of) : null;
+        Frequency frequency = Frequency.fromCode(freq)  // e.g., map "Q" to Frequency.QUARTERLY or handle "native"
+                .orElseThrow(() -> new BadRequestException("Invalid frequency: " + freq));
+        Transform transformType = Transform.fromCode(transform)
+                .orElseThrow(() -> new BadRequestException("Invalid transform: " + transform));
+        FillPolicy fillPolicy = FillPolicy.fromCode(fill)
+                .orElseThrow(() -> new BadRequestException("Invalid fill: " + fill));
+
+        // 2. Delegate to service to fetch and process data
+        SeriesDataResponse response = seriesService.getSeriesData(seriesId, startDate, endDate, asOfDate,
+                                                                  frequency, transformType, fillPolicy);
+        return ResponseEntity.ok(response);
+    }
+}
+In the above snippet, we see: - Input validation: Ensure dates are parseable and enums recognized. If something is invalid, throw a BadRequestException (which we map to a 400 with a nice error message in an exception handler advice). - Using enums or optionals for freq/transform means no magic strings beyond this boundary[4]. The code self-documents possible values (and if unknown, we respond with clear error). - Path variable seriesId is taken as string – depending on format, we might validate pattern (e.g., ensure it matches allowed ID format to prevent injection or mistakes). - Delegation to a service method getSeriesData.
+Now the Service might look like:
+@Service
+public class TimeSeriesService {
+
+    @Autowired
+    private SeriesRepository seriesRepo;
+    @Autowired
+    private SeriesDataRepository dataRepo;
+    @Autowired
+    private SearchClient searchClient;  // for searching Elastic
+
+    public SeriesDataResponse getSeriesData(String seriesId, LocalDate start, LocalDate end, LocalDate asOf,
+                                           Frequency freq, Transform transform, FillPolicy fill) {
+        // Fetch series metadata (ensure series exists)
+        Series series = seriesRepo.findById(seriesId)
+                .orElseThrow(() -> new NotFoundException("Series not found: " + seriesId));
+        // Determine data range to query
+        LocalDate effectiveStart = (start != null ? start : series.getStartDate());
+        LocalDate effectiveEnd   = (end   != null ? end   : series.getEndDate());
+        // Fetch raw data points from repository
+        List<DataPoint> points;
+        if (asOf != null) {
+            points = dataRepo.findSeriesDataAsOf(seriesId, effectiveStart, effectiveEnd, asOf);
+        } else {
+            points = dataRepo.findSeriesData(seriesId, effectiveStart, effectiveEnd);
+        }
+        // Perform resampling if needed
+        points = Resampler.resample(points, freq);
+        // Apply transformation if requested
+        points = Transformer.apply(points, transform);
+        // Fill missing data if requested
+        points = Filler.fill(points, fill);
+        // Construct response DTO
+        SeriesDataResponse resp = new SeriesDataResponse();
+        resp.setSeriesId(seriesId);
+        resp.setName(series.getName());
+        resp.setFreq(freq == Frequency.NATIVE ? series.getFrequency().code() : freq.code());
+        resp.setUnit(series.getUnit());
+        resp.setAsOf(asOf);
+        resp.setTransform(transform.code());
+        resp.setFill(fill.name().toLowerCase());
+        resp.setPoints(toPairs(points));
+        resp.setMetadata(Map.of(
+            "country", series.getCountry(),
+            "source", series.getSource(),
+            "coverage_start", series.getStartDate().toString(),
+            "last_update", series.getLastUpdate().toString()
+        ));
+        return resp;
+    }
+
+    // other methods for search and metadata...
+}
+This pseudo-code demonstrates: - Loading metadata and data via repositories. Likely SeriesRepository is a Spring Data JPA interface for series table and SeriesDataRepository for series_data. For findSeriesData we might use a custom query (with @Query or Querydsl) to fetch the points in a given range. If we want to stream, we could have it return a Stream<DataPoint> or use a callback to process rows one by one (to handle very large results without excessive memory). - If asOf is given, the repository could join or select from history table where revision_time <= asOf date, picking the latest revision before asOf. This logic might be complex depending on how revisions stored, but it's encapsulated in that method. - Resampling: We’d implement a Resampler utility. If freq is the same as series’ native frequency (or “native”), we do nothing. If requesting a lower frequency (e.g. yearly from quarterly), we aggregate – likely by taking the last value of the period or sum if appropriate (depending on the type of series, e.g., GDP might take sum or average). If requesting a higher frequency than native (e.g. monthly from quarterly), we might interpolate or forward-fill as an option (this could also be controlled via fill policy). The design should clearly document how this works. - Transformations: The Transformer.apply would handle known transformations: - Year-over-year (YOY) percent change: for each point, take (this_value / value_one_year_ago - 1) * 100. - Month-over-month, etc. These require comparing to earlier points (depending on frequency). The code would need to find the appropriate lag (which is why having data in a list allows index math, or using date math to lookup previous). - Performance: These operations should be done in O(n) time over the points list. We should use primitive arithmetic and avoid unnecessary object creation in the loop. For instance, points could be a list of a simple DataPoint(date, value) record. When computing transforms, rather than creating new objects for each transformed value, we might mutate the list or use an array of doubles for values to compute faster. We will ensure this part is efficient given potentially thousands of points (which is fine). If millions of points (rare in macro data per series), we might consider more low-level optimization or streaming approach. - Fill: The filler can simply iterate once and replace nulls as needed (forward fill means if current is null, replace with last seen non-null, etc.).
+The above logic keeps each concern (resample, transform, fill) modular. We avoid deeply nested if/else in one loop by possibly separating them, but note: applying them in separate passes is slightly less efficient than one combined pass. For simplicity and clarity, separate steps are fine (and easier to test each separately). If performance proved an issue, we could combine loops. Given data sizes, clarity is likely fine here (but document reasoning in code comments if we ever choose a less “clean” combined approach for speed).
+Data Access Implementation: For the repository, using Spring Data:
+public interface SeriesDataRepository extends JpaRepository<DataPoint, CompositeKey> {
+    @Query("""
+       SELECT new com.example.DataPoint(sd.date, sd.value) 
+       FROM series_data sd
+       WHERE sd.seriesId = :seriesId 
+         AND sd.date BETWEEN :start AND :end
+       ORDER BY sd.date
+       """)
+    List<DataPoint> findSeriesData(@Param("seriesId") String id,
+                                   @Param("start") LocalDate start,
+                                   @Param("end") LocalDate end);
+
+    @Query("""
+       SELECT new com.example.DataPoint(sd.date, sd.value) 
+       FROM series_data sd
+       LEFT JOIN series_data_history hist ON ... -- join logic to incorporate revisions
+       WHERE sd.seriesId = :seriesId 
+         AND sd.date BETWEEN :start AND :end
+         AND (hist.seriesId IS NULL OR hist.revisionTime <= :asOf)
+       ORDER BY sd.date
+       """)
+    List<DataPoint> findSeriesDataAsOf(...);
+}
+(The above is conceptual – actual revision query depends on schema design. Alternatively, we might simply query a historical table directly if storing all versions there and then filter and pick the latest up to asOf.)
+For large datasets, we might return a Stream<DataPoint> instead of List, using Spring Data’s ability to stream results so we don’t load everything in memory at once. And to send the response without holding everything, we could use Spring WebFlux (reactive) or simply stream and write out as we go. However, JSON serialization libraries typically need the whole object constructed. If memory or size is a concern for certain endpoints, we might consider chunked transfer or server-sent events for streaming data – but typically, JSON of a few thousand points is fine.
+Transactions: Reads can be non-transactional (or read-only transactions). Writes (if we had any endpoints to insert data) would be transactional. Our API as described is mostly read-only, but internal processes or admin tools would load new data periodically. Those would use transactions or bulk copy mechanisms.
+Node.js Frontend Implementation:
+The Node.js layer can be a lightweight Express.js application (or Fastify for performance) that primarily handles middleware concerns: - Parse the incoming HTTP request, enforce HTTPS (if not already done at a reverse proxy). - Verify an API key or token (e.g., check header or query, validate signature or lookup in a cache/db). - Throttle or reject if request rate exceeds limits (could use packages like express-rate-limit or a custom middleware). - Forward the request to the Java service. If the Node and Java are deployed separately, this might be an HTTP call (e.g., using Axios or node-fetch to call http://internal-service:8080/v1/series/...). If deployed on same host, could also use an optimized binding (but simplest is HTTP). - Possibly aggregate or modify response: in our case, probably not much modification. Node could, for example, unify responses if calling multiple internal services (not in our simple scenario). - Send the response back to client. Also handle any error mapping if needed (e.g., if Java returns a 500 with a body, ensure that propagates properly).
+Why use Node at all? In a simple deployment, clients could hit the Java service directly. But in ISI’s context, having a Node layer allows: - Merging different backends: e.g., one Node API gateway that routes /v1/series to the CEIC Java service, /v1/companies to an EMIS .NET service, etc., giving a unified API domain for all products. - Serving the developer portal and documentation from the same server or domain (e.g., developers.company.com could be a Node app that has both static content and an API reverse proxy). - Adding an extra layer of caching and insulation. Node can cache popular requests in memory and reduce load on backend. It can also handle some logic like combining calls (though here not needed).
+The Node service should also be well-structured: - Use environment variables for configuration (like the URL of the Java service, API keys, etc.). No secrets or config in code (twelve-factor app principle). - Possibly use TypeScript for better maintainability (catch errors early with types). Define types for requests and responses matching the OpenAPI spec, so the Node layer can validate or even generate some code. - Use a logging library to log access logs and errors in JSON format (for observability). - In terms of security, Node will enforce any cross-origin rules if needed (set CORS headers if this is to be called from browsers, though likely these are server-to-server clients mostly). - Node can also implement input sanitization at the edge – e.g., if it sees any suspicious patterns (though since we pass through to Java which also validates, this is defense-in-depth).
+Example: Node (Express) pseudo-code:
+const app = require('express')();
+const rateLimit = require('express-rate-limit');
+const axios = require('axios');
+
+// Rate limiting middleware (100 requests per minute for example)
+const limiter = rateLimit({ windowMs: 60*1000, max: 100 });
+app.use(limiter);
+
+// Auth middleware
+app.use((req, res, next) => {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey || !isValidApiKey(apiKey)) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+    next();
+});
+
+// Proxy to Java service
+app.get('/v1/series/:seriesId/data', async (req, res) => {
+    try {
+        // Construct internal service URL (could read from env config)
+        const url = process.env.JAVA_API_URL + `/v1/series/${req.params.seriesId}/data`;
+        // Forward query params too
+        const response = await axios.get(url, { params: req.query });
+        // Relay response status and data
+        res.status(response.status).send(response.data);
+    } catch (err) {
+        if (err.response) {
+            // If backend returned error (like 4xx), propagate it
+            res.status(err.response.status).send(err.response.data);
+        } else {
+            // If request failed (backend down, etc.)
+            console.error("Backend request failed", err);
+            res.status(502).json({ error: "Bad Gateway", details: "Failed to retrieve data" });
+        }
+    }
+});
+
+// ...similar handlers for other endpoints (or use a generic proxy middleware)...
+In practice, we might use a more sophisticated API Gateway or reverse proxy (NGINX or AWS API Gateway) instead of building our own Node proxy. But Node allows adding custom logic per request as shown.
+The Node layer is also a good place to implement Web Security headers globally: - Enforce HTTPS (redirect http to https if necessary). - Set HSTS header for security. - Set content-security-policy (mostly for web pages, not relevant to pure API). - Set X-RateLimit-Remaining headers to inform clients of their usage, etc.
+Security and Best Practices
+Security is paramount for any public-facing API. We incorporate OWASP best practices at every layer:
+    • Authentication: Use a strong auth mechanism. We can issue API keys to clients for simplicity (each request includes an X-API-Key header or query param). Better, use OAuth2 (Client Credentials flow for server-to-server integrations). In this scenario, we might have an authorization server issuing JWTs or opaque tokens. The Node gateway will validate these tokens (e.g., check signature if JWT, or check against a cache/DB). Using OAuth2 scopes, we can limit what each token can access (principle of least privilege).
+    • Authorization: Beyond verifying the token, ensure the client has access to the requested resource. For example, if some series are premium and some clients shouldn’t access them, implement a check (this could be as simple as maintaining entitlements in a database and checking seriesId against user’s allowed list). This check can live in the Java service (since it knows which series is being accessed) or at the gateway after calling an auth service. For now, assume all authenticated users can access all data (but design allows extension).
+    • Encryption: All network traffic must be over HTTPS. TLS (at least v1.2) ensures encryption in transit. Also, any sensitive data at rest (e.g., if any personal info, or API keys in DB) should be encrypted or hashed. The database connection should be encrypted to avoid sniffing.
+    • Input Sanitization: All inputs from clients (path params, query params, headers, JSON bodies) are treated as untrusted. We validate and sanitize:
+    • Use parameterized queries or ORM to avoid SQL injection – never directly concatenate user input into queries.
+    • In Java, any usage of user input in dynamic contexts (like building JSON or file paths) must be checked. We avoid eval or executing user-provided scripts.
+    • If any data is reflected back (not much in an API except maybe in error messages), ensure no XSS (for example, if an error echoes a query param, we might escape it or just not include it raw).
+    • Rate Limiting and Throttling: Implemented at the Node gateway. For example, per API key rate limits (e.g., 100 requests per minute as default). Also a global rate limit to protect against brute force. The system should respond with HTTP 429 Too Many Requests when limits exceeded, with a Retry-After header if possible. Throttling ensures a single client can’t overload the system and also helps mitigate basic DoS attacks.
+    • DDoS Protection: For large-scale DDoS, we rely on infrastructure (cloud provider anti-DDoS services, WAF, CDN) to absorb and filter malicious traffic. At the app level, our rate limiting and perhaps request size limits help. We also can use captcha or proof-of-work for certain expensive endpoints if abuse is detected (perhaps not needed initially, but a consideration).
+    • Validation of Resource IDs: We ensure IDs like seriesId conform to expected patterns (e.g. regex) to avoid pathological cases (extremely long strings, or special characters that could break queries).
+    • Secrets Management: All secrets (DB passwords, API keys for internal services, encryption keys) are stored outside code – e.g., in environment variables or a secrets manager (like AWS Secrets Manager or Azure Key Vault). Never commit secrets to code repo. For local dev, use a .env file (excluded from git) to load env vars.
+    • Least Privilege for Services: The database user used by the application should have only necessary privileges (SELECT/INSERT on the needed tables, no superuser). If using AWS, the instance roles/permissions should be minimal (only access to the S3 bucket if needed, etc.). Similarly, within code, if we execute external commands or use files, restrict as much as possible.
+    • Audit Logging: Record important security events – log login attempts, token generation, high-value actions (if any). In our read-only API, main events are access logs. We include in logs: who (API key or user id) accessed what (endpoint/series) and when. This can help detect abuse or provide usage reports.
+    • OWASP Top 10: We mitigate the common vulnerabilities:
+    • Injection: use ORMs/parameterization, validate inputs.
+    • Broken Auth: use robust frameworks for auth (Spring Security, JWT libraries), enforce token expiry and revocation. Implement multi-factor for any user login if applicable to get API keys.
+    • Sensitive Data Exposure: encrypt comms, scrub sensitive info from logs (e.g., if an error might include a stack trace, disable that in prod).
+    • XML External Entities (XXE): we primarily use JSON, but if XML supported, configure parser to disable external entity resolution.
+    • Broken Access Control: ensure authorization checks for any restricted data.
+    • Security Misconfiguration: use secure defaults (e.g., disable directory listings if any static hosting, ensure CORS is properly configured to not allow random sites to call if not intended).
+    • XSS: not much in API, but if Node serves docs or any UI, escape outputs properly. For error messages, avoid including unsanitized input.
+    • Insecure Deserialization: not directly relevant unless we accept serialized objects (we don’t).
+    • Using Components with Known Vulns: keep dependencies up-to-date (manage via Dependabot or similar), scan for vulnerabilities.
+    • Monitoring and Logging: have an incident response plan; monitor logs for anomalies.
+    • API Usage Security: We might issue per-client rate limits or quotas (e.g., free tier vs premium tier might have different allowed calls per day). This can be managed by the Node gateway by reading the client’s plan info from a DB or config.
+    • Input Size Limits: To prevent someone from hitting our endpoints with huge payloads (like an enormous JSON to search, though our search is GET with limited length), we set sane limits (Express can limit request body size, and in Tomcat/Spring, we can limit max content length and header size).
+    • Output Sanitization: Ensure our JSON serialization is safe. Do not leak internal implementation details. For instance, do not directly serialize JPA entities without controlling fields (to avoid exposing unintended fields). Use DTOs or @JsonIgnore as needed to only return intended data.
+By layering these defenses, we achieve a secure API resilient to common threats.
+Quality Attributes and Cross-Cutting Concerns
+The system is designed with numerous quality attributes in mind:
+    • Scalability: The stateless nature of the API (especially the Java service) allows horizontal scaling: we can run multiple instances behind a load balancer. The database can scale via read replicas for heavy read load, and partitioning for write scale. If one database is not enough, we can shard by data domain or region (e.g., separate instances per region if data is largely separate). The use of caching and search index also helps offload work from the primary DB. We ensure the app scales out on demand (e.g., using AWS Auto Scaling for EC2 or appropriate Kubernetes pod scaling based on CPU/QPS). Load testing will guide the capacity planning.
+    • Low Latency: We target sub-100ms response for typical queries (small date ranges or a single series data). For search queries and large data fetches, we aim to be as fast as possible (perhaps 200-500ms for moderate payloads, which users find acceptable, and using the async export for anything larger). Techniques to keep latency low include using indexes effectively, caching hot data, minimizing unnecessary processing (e.g., avoid n+1 query issues by fetching in one go), and using efficient algorithms (linear scans on in-memory data for transform is fine; avoid anything worse than O(n)). We also consider network latency: the Node and Java service ideally run in the same data center (perhaps even same machine or cluster) to minimize hop latency. We keep payloads reasonably small (supporting pagination and filtering) so response size (which affects latency) is in control.
+    • Throughput: The system should handle many requests per second. We use non-blocking or tuned I/O where possible. For example, if using Spring MVC (which is thread-per-request), ensure the thread pool is large enough and uses timeouts to not get exhausted. Alternatively, Spring WebFlux (reactive) could be used for better throughput on I/O-bound operations (especially if many simultaneous slow DB calls). Given our mainly I/O-bound tasks (waiting for DB), a reactive model could increase throughput by using fewer threads. Regardless, we also ensure the DB can handle concurrent queries by using connection pooling (e.g., HikariCP) and not overloading with too many connections. Bulk of throughput improvements come from scaling out horizontally and using caches to reduce repeated work.
+    • Reliability & Availability: We aim for high uptime (e.g., 99.9% or better SLA). To achieve this:
+    • Deploy multiple instances (no single point of failure at app layer). If one instance goes down, load balancer directs to others. Use health checks to remove unhealthy instances.
+    • The database is a critical component – use a highly available setup (e.g., primary-replica with failover, or a managed service that handles failover). Regular backups and/or multi-AZ deployments ensure no data loss and quick recovery.
+    • Implement graceful degradation: if, for instance, the search service (Elasticsearch) is down, the API could still serve data by falling back to a basic SQL search or returning a friendly error “search temporarily unavailable” rather than crashing. Similarly, if the cache is down, system continues (just a bit slower).
+    • Use timeouts when calling external components (DB, search, etc.) – if those calls hang or are too slow, fail fast or return partial results if possible. For example, if the transform calculation somehow takes too long, better to return an error or partial data than hang indefinitely.
+    • Employ circuit breakers (with libraries like resilience4j or Hystrix) for external calls: if the DB is consistently failing, the service can quickly return errors instead of tying up resources, and periodically retry.
+    • Bulkheads: Isolate resources like threads for certain tasks. E.g., dedicate a small threadpool for search requests separate from data requests, so a flood of heavy search queries doesn’t starve all threads and prevent simple data fetches. Similarly, use separate DB connection pools if needed for different query types.
+    • Consistency and Integrity: For data consistency, using a relational DB ensures strong consistency for reads/writes of a single series. We assume data is updated via controlled processes (not via this API, which is read-only). So consistency mainly means when a client requests data, they either get the old or new version completely. We should avoid mixing revisions – the as_of parameter allows clients to explicitly choose consistency level (latest vs historical). For exactly-once delivery semantics – if we ever had a process that streams updates, we’d handle deduplication. With our request/response API, idempotency is key: all GETs are naturally idempotent (safe to retry). If we had any POST (like an export job), we ensure clients can retry safely (maybe by deduplicating identical requests or providing an idempotency key). Ordering of data points is guaranteed by date sorting. If multiple updates happen to the same series, the DB and last_update help ensure any read either sees the data before or after the update wholly (we would avoid cases where partial update is read – e.g., use transactions so that adding a new quarter’s data and updating end_date happen atomically).
+    • Durability: Since this is financial/economic data, durability is extremely important – no data loss is acceptable. We rely on ACID transactions for writes and on the DB’s durability (WAL, etc.). Regular backups are scheduled and tested. In a cloud setting, use managed DB with PITR backups. If using Timescale or cluster, ensure we can recover or have replicas in case of node loss. For the cache and search, durability is less critical (cache can be recomputed, search index can be rebuilt from DB if needed). But we might still snapshot the search index data or run it as a cluster so it doesn’t lose data on one node failure.
+    • Maintainability: The code structure (layered, modular) ensures each part can be understood and modified independently. We avoid overly complex or monolithic functions – following clean code principles (small methods, descriptive naming) where it doesn’t conflict with performance. Comments in code are used sparingly, mainly to explain why something is done a certain way or to clarify non-obvious decisions. We prefer self-explanatory code: e.g., using clear class and method names like resample() rather than comments like // change frequency. Consistent style (perhaps enforced by a linter or code formatter) is used across the team. We also encapsulate logic in testable units (e.g., we can unit test the Resampler or Transformer easily).
+    • Testability: We will write thorough unit tests for core logic (transforms, resampling, fill, repository queries with edge cases like missing data). We also write integration tests for the REST API (using Spring’s MockMvc or RestAssured) to ensure the whole stack works (these can use an in-memory H2 database or a testcontainer with PostgreSQL to mimic real DB). Mock external dependencies like the search client to test search flows without requiring a live Elastic. Additionally, create some contract tests for the API – ensuring that given a known dataset, the JSON output matches expected structure (this guards against accidental changes in JSON format). If possible, use the OpenAPI spec with a validator in tests to ensure responses comply.
+    • We test not only the “happy path” but also error conditions: e.g., invalid date input returns 400, unauthorized without key returns 401, etc.
+    • Performance tests (load tests) can be part of our pipeline to catch regressions in response time under load.
+    • Observability: Embed logging, metrics, and tracing:
+    • Logging: Use a structured logging approach (JSON logs) including key fields (timestamp, level, service name, request ID, user ID or API key (if not sensitive), endpoint, response time, etc.). Log at appropriate levels: info logs for high-level actions, debug for diagnostics (not in prod normally), warn for recoverable issues, error for unexpected failures. Avoid logging sensitive data (no passwords or full query strings if they contain API keys). If an error occurs (exception stacktrace), log it on server side with context, but return a sanitized message to client.
+    • Metrics: We will record metrics like request count, latency distribution, DB query times, cache hits/misses, etc. Using Micrometer + Prometheus or similar, we can track these over time. Define SLOs (e.g., 95% requests under 200ms) and set up alerts if breached.
+    • Distributed Tracing: If the Node and Java communicate, generate a correlation or trace ID for each request. The Node gateway can create a unique request ID (UUID) and pass it as a header to the Java service (and include in its own logs). The Java service then includes that ID in its logs. This allows correlating a single client request through both services. If using an APM solution or OpenTelemetry, we can capture the end-to-end trace including DB calls. This greatly helps debugging performance issues or errors in a microservice chain.
+    • Health Monitoring: Implement health check endpoints and possibly integration with AWS CloudWatch or other monitoring. Set up alerts for high error rates, high latency, or resource usage anomalies.
+    • Evolvability: The API is versioned to allow adding features. We follow a versioning strategy where backwards-compatible changes (adding new optional fields or endpoints) can happen in the same version, but any breaking change means a new version. We design with extension in mind: e.g., the output JSON can include additional fields and clients should ignore what they don’t recognize. We might include a metadata map now, and we can add new keys to it later without breaking old clients. For major changes, we’ll introduce /v2 and support both for a time, possibly with the Node gateway routing to appropriate backend logic. We also keep the internal design modular so that new requirements (say, adding streaming realtime data or supporting GraphQL in the future) can be integrated without a complete rewrite.
+    • Interoperability: We adhere to standards so our API can be easily consumed across platforms. JSON over HTTP is universally supported. We follow REST conventions for methods and responses. We provide an OpenAPI (Swagger) specification so tools can auto-generate clients or interactive docs. Our use of standard HTTP features (status codes, content negotiation) means even generic HTTP clients or libraries can work without special handling. If needed in future, adding GraphQL or gRPC endpoints could be done to cater to different client preferences, but the core logic would remain and just be exposed differently.
+    • Efficiency & Cost: Efficient use of resources helps both performance and cost:
+    • We use connection pooling for DB so we don’t open a new connection per request (saving overhead).
+    • Use caching to reduce expensive operations (e.g., if many calls request the same series, retrieve from cache instead of hitting DB each time – memory is cheaper than DB CPU time).
+    • Implement pagination and limits to prevent any single request from pulling gigabytes of data into memory. This protects server from OOM and also discourages inefficient client usage (if they truly need a lot, they should use the bulk download route which can be optimized and also possibly charged differently).
+    • Use GZIP compression on HTTP responses for large payloads (JSON compresses very well, often 90% size reduction for numeric data sequences). Our Node gateway can automatically gzip responses (based on Accept-Encoding header) – this saves bandwidth costs and speeds up transfer, at the expense of a little CPU.
+    • We also ensure to free resources promptly – e.g., stream results and close DB ResultSets, do not retain large objects in memory longer than needed.
+    • If deployed on cloud (AWS), leverage cost-efficient services: for example, use AWS RDS for a managed Postgres (saves operational cost/time), use EC2 or ECS with right-sizing for the Java service, possibly AWS API Gateway or CloudFront for caching frequently accessed public data.
+    • Cacheability: Many of our GET endpoints are cacheable. We set appropriate HTTP headers:
+    • For /series/{id} and /series/{id}/data, since data can change when updates happen, we use ETag or Last-Modified. The ETag could be a hash of the data or a version number that changes when last_update changes. Clients can then do If-None-Match on subsequent calls. If no change, we return 304 Not Modified, saving bandwidth.
+    • We can also allow public caches (like a CDN) for non-sensitive endpoints. For instance, if certain series are not behind auth (maybe public data), those could be cached at the edge. But assuming auth is required, caches would be mostly private to each client (still useful in their tooling).
+    • At the Node layer, we might implement an in-memory cache for responses for a short time (e.g., cache the last 5 minutes of responses for certain hot series) – effectively a simple Content Cache. This is a trade-off of freshness vs speed, but could drastically cut DB calls for frequently requested data (like high-level indicators around release time). We would likely make this opt-in or careful (maybe only for non-as_of latest data calls).
+    • Throughput Management: In addition to rate limiting per user, we design for fairness. The system should handle bursts gracefully – our rate limiter can allow short bursts (bucket of tokens) but smooth out long sustained load. We also potentially implement quotas (e.g., max requests per day per user) to prevent abuse. The Node gateway can check an analytics store counting usage. If a user hits their quota, respond 429 or a 403 with message. This ensures one heavy user (unless paying for more) doesn’t exhaust system capacity.
+    • Compliance & Privacy: Time series data here is mostly public or licensed economic data, not personal data, so privacy concerns are limited. However, if any PII (personally identifiable info) was present (e.g., user account data), we’d ensure GDPR compliance (right to be forgotten, etc.). We also ensure we respect data licensing – e.g., if some data can’t be redistributed, the API enforces auth on it. All access is logged for audit, so if needed we can prove who accessed what (important for compliance with data provider agreements). If running in multiple regions, consider data residency (keep data in allowed regions).
+    • Localization & Timezone: Our dates/times are handled carefully. We store dates in UTC or as pure dates (no timezone ambiguity for daily or lower frequency). If we had intraday series, we’d store timestamps in UTC. The API presents times in ISO 8601, and can allow specifying timezone if we ever support intraday aligned to local time (not likely in macro data). For localization, if series names or metadata exist in multiple languages (e.g., EMIS might have local language fields), we could allow a Accept-Language or locale parameter to get data in that language. Initially, we assume English-only for simplicity.
+    • Operational Readiness: We prepare runbooks for common scenarios (e.g., “Database is down”, “API returns 500s”, “Memory usage high” – what to do, who to contact). We define SLOs/SLIs such as uptime 99.9%, <200ms avg latency, etc., and set up monitoring to track these. Alerts (pager or email) are configured for breaches (like 5XX error rate spikes, or DB CPU 90%+). We support blue-green deployments or canary releases to deploy new versions with minimal risk: e.g., deploy v2 of service alongside v1, test it, then switch traffic. We use feature flags for any feature we might want to toggle at runtime (for example, a flag to enable a new transform calculation method only for internal testing initially).
+    • Portability: The implementation is cloud-agnostic. We can run the Java and Node services in Docker containers, making it easy to deploy on AWS (ECS/EKS), Azure, or on-prem. Database could be any SQL – we used Postgres in design, but could adapt to MS SQL or MySQL if needed (just changing the Spring Data driver and some dialect specifics). We avoid proprietary AWS services in code; for example, instead of using DynamoDB (AWS specific), we chose Postgres which is available anywhere. Infrastructure is defined ideally via code (Terraform, CloudFormation, etc.) so spinning up in a new region or cloud is straightforward. Externalizing all configuration (DB URL, credentials, etc.) means moving environments is low friction.
+    • Continuous Integration/Deployment: We include in our design a CI pipeline: on each commit, run tests, static analysis (lint, security scan), then package (e.g., build Docker image). For deployment, use a CD pipeline to deploy to staging, run integration tests, then to production with manual approval or canary. Rolling deployments ensure no downtime (the old instances serve while new spin up). We also ensure zero-downtime migrations for the database (use backward-compatible DB changes, run migrations online, etc., to not require full downtime).
+Good Coding Practices and Patterns
+Throughout the implementation, we adhere to proven coding practices: - Clean, Readable Code: Use meaningful class and method names so that the code self-documents. Functions are kept short and focused (e.g., the service method above could be further split into smaller methods if needed). We avoid deep nesting by using guard clauses and by dividing tasks into subtasks. This makes it easier for new team members to understand logic without excessive comments. - Object-Oriented Design (OOP) vs Data-Oriented: We use OOP where it models the domain well (Series, DataPoint as classes). However, we are cautious not to over-engineer with inheritance or polymorphic hierarchies that don’t add value. For example, we wouldn’t create separate subclasses for AnnualSeries, QuarterlySeries if behavior differences are minimal – instead, use an attribute or strategy pattern for frequency-specific logic. Overuse of polymorphism can sometimes hurt performance (due to virtual calls and poor CPU cache usage)[1][20]. In tight loops (like transform calculations), we favor simple data structures (like primitives) and avoid virtual method calls inside loops. For instance, rather than an object for each point with a method point.getValue(), we might work with a list of values directly to leverage CPU cache and even vectorization. These micro-optimizations are applied only where needed (hot spots), guided by profiling. - Data-Oriented Example: If computing a transformation on a large array of values, a simple loop or using Java streams with an inlined lambda might be more efficient than an overly abstract method call per element. We keep an eye on such critical sections. (That said, Java JIT can inline a lot – but clarity and performance are balanced case by case). - No Magic Numbers: We avoid using unexplained constants. If we have a default page size or a threshold, it’s defined as a private static final int DEFAULT_PAGE_SIZE = 50; with a clear name[4]. This avoids confusion and makes future changes easy. Similarly, error codes (if used) are defined centrally. - Enumerations and Strong Types: As mentioned, we use enums for fixed sets (frequency, transform, etc.) to make code less error-prone[4]. This provides compile-time checking (e.g., you cannot pass an invalid frequency) and clarity at call sites. In more complex systems, one can use strongly typed identifiers (e.g., wrapper classes or value objects for series ID, user ID) to avoid mixing them up. Java’s type system isn’t as flexible as C++ for creating distinct types easily, but we could at least avoid using raw types where possible (e.g., use SeriesId as a value object type). - Immutability: Use immutable data structures for value objects when possible. The SeriesDataResponse DTO in our example is mutable for building, but we could also use Lombok’s @Value or record types for simple structs (Java record is ideal for DataPoint and possibly Series). - Separation of Concerns: The Node layer does not contain business logic; the Java service does not deal with HTTP specifics. Database logic (queries) is kept in repository classes, not spread across the service. This makes each part more maintainable and testable (we can test Service with a mock repository, etc.). - Comments: Write comments to explain why something is done in a certain way, especially if non-obvious (e.g., "Using manual JDBC here for performance: streams 1M rows without loading into memory"). Do not write redundant comments that state what code clearly does (e.g., avoid // increment i on a line i++). This keeps code clean and avoids comments getting out of sync with code changes. - Example of self-documentation vs comment: - Poor:
+int f = 1; // flag to indicate if data is adjusted
+if(f == 1){ /*...*/ }
+- Better:
+boolean isAdjusted = true;
+if(isAdjusted){ ... }
+No comment needed, the code is obvious. - SOLID Principles: We apply them pragmatically. For example, Single Responsibility: the TimeSeriesService.getSeriesData handles orchestration of steps, but the actual transform calculations might be in another class. Open/Closed: adding a new transform type should ideally not break existing code – we can design Transform as an enum with a function, or a strategy pattern so new ones can be added without modifying the core logic structure (just register new strategy). Liskov, Interface Segregation, Dependency Inversion – mostly handled via our layering and not creating giant interfaces. - Performance Considerations: We optimize where necessary: - Choose appropriate data structures (e.g., ArrayList for iterating through points, HashMap for lookup by date if needed in transforms, etc.). We consider algorithmic complexity (avoid nested loops that could blow up – though our operations are typically linear in number of points which is fine). - Minimize memory allocations in hot loops – reuse objects or pre-size collections when possible. For instance, if we know the number of points after resampling, we can allocate an array of that size rather than dynamically growing a list. - Use streams wisely: Java 8 streams are convenient, but in performance-critical sections a simple for-loop can be faster and more straightforward. We’ll use streams for clarity in non-critical paths and use loops when measuring shows a benefit. - Avoid unnecessary synchronization: our service is stateless for requests, so we don’t use synchronized methods that would bottleneck throughput. Thread safety is mainly needed in caching components (we’ll use thread-safe caches or proper locking around them). - Exploit concurrency: If a single request needs multiple independent queries (not really the case in our current scope, but suppose one day we retrieve multiple series in one call), we could run those in parallel using CompletableFutures. For now, each request deals with one series primarily, so it’s sequential and fine. - Coding Standards and Reviews: We enforce a code style guide (braces, naming conventions, etc.) and use static analysis tools (Checkstyle, SonarQube, SpotBugs) to catch common mistakes or bad practices. Code is peer-reviewed to maintain quality and share knowledge. - Continuous Improvement: Encourage refactoring when parts of the code become messy or if performance is lacking. We keep technical debt in check by not postponing critical fixes and by adding tests before altering behavior.
+In summary, the codebase will be clean, well-structured, and efficient – striking the right balance between clarity and optimization. Critical code paths (like data processing) are written in a straightforward and performant style (more direct loops, minimal abstraction overhead) to meet our performance goals[1][20], whereas higher-level orchestration code is written in a more abstracted, maintainable way. This approach ensures we deliver an API that not only meets the functional needs but is also robust in production and a joy to maintain and extend by the team.
+Conclusion
+By following this implementation guide, we can build a time series API that is scalable, secure, and developer-friendly. We combined industry best practices (RESTful design[1][2], robust security measures, comprehensive testing) with practical performance considerations (efficient data handling, caching, scaling strategies) to meet the demanding needs of an analytics platform. The design is informed by real-world systems like CEIC, which serves millions of series with rich metadata[7][8], and incorporates modern architectural thinking (API facades, microservices, cloud readiness).
+This API will enable users to easily integrate economic and financial time series into their applications, retrieving data with simple HTTP calls and getting results in convenient formats. At the same time, it will satisfy the operational requirements of a modern SaaS: high uptime, monitoring, easy deployment, and the flexibility to evolve as requirements grow (such as adding new data types or calculation features).
+With clean code and solid architecture in place, the engineering team can confidently deliver new functionality (e.g., adding notification when new data is available, or supporting GraphQL queries for more complex retrievals) without breaking the existing API. The system is prepared to handle large workloads and provides a strong foundation for the company’s data API offerings across different product lines.
+Finally, remember that building an API is not a one-time task – it’s an ongoing commitment. We will continuously gather feedback (from developers using the API, from performance metrics, etc.) and iterate on this design: refining queries, expanding the infrastructure, and updating security as new threats emerge. By adhering to the principles and practices outlined above, we ensure that our Time Series Data API remains reliable, efficient, and a pleasure to use for years to come.
+References:
+    • CEIC Data – API & Data Feed Solutions: scale and features of a real-world economic data API[21][8].
+    • Brian Mulloy, “Web API Design: Crafting Interfaces that Developers Love” – REST API design best practices (resource naming, versioning, errors, etc.)[1][2].
+    • CEIC Press Release (2025) – Point-in-Time Data Launch: demonstrates the importance of revision history in time series APIs[12][22].
+    • TimescaleDB – time-series extension for Postgres enabling high-performance analytics on temporal data[23].
+
+[1] [2] [3] [9] [10] [11] [14] [15] [16] [17] [18] [19] Web API Design Book - Crafting Interfaces that Developers Love - InfoQ
+https://www.infoq.com/news/2012/03/web-api-design-book/
+[4] [7] [8] [21] CEIC APIs and Feeds Product Page
+https://info.ceicdata.com/api-and-data-feed-solution
+[5] [23] timescale/timescaledb: A time-series database for high ... - GitHub
+https://github.com/timescale/timescaledb
+[6] [20] Timescale vs. Amazon RDS PostgreSQL: Up to 350x Faster Queries ...
+https://www.timescale.com/blog/timescale-cloud-vs-amazon-rds-postgresql-up-to-350-times-faster-queries-44-faster-ingest-95-storage-savings-for-time-series-data
+[12] [13] [22] CEIC Launches Point-in-Time Data: Transforming Quantitative Analysis with the Longest Historical Revised Data Available
+https://info.ceicdata.com/ceic-launches-point-in-time-data

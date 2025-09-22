@@ -1,0 +1,25 @@
+receivers:
+  otlp:
+    protocols:
+      grpc: {}   # :4317
+      http: {}   # :4318
+
+exporters:
+  debug: {}     # replaces deprecated 'logging' exporter
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      exporters: [debug]
+    logs:
+      receivers: [otlp]
+      exporters: [debug]

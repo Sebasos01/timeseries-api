@@ -1,0 +1,22 @@
+name: Lint and Meta
+
+on:
+  push:
+    paths-ignore:
+      - '**/*.md'
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: EditorConfig placeholder
+        run: |
+          echo "editorconfig-checker will be wired in Phase 1"
+
+      - name: Verify LICENSE present
+        run: |
+          test -f LICENSE

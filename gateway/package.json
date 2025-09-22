@@ -1,0 +1,19 @@
+{
+  "name": "@timeseries-api/gateway",
+  "version": "0.0.0",
+  "description": "Edge gateway for the Time Series Data API.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node -e \"process.exit(0)\"",
+    "start": "node dist/app.js"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "typescript": "^5.6.3"
+  }
+}

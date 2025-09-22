@@ -1,0 +1,37 @@
+name: Gateway CI
+
+on:
+  push:
+    paths:
+      - 'gateway/**'
+      - '.github/workflows/ci-gateway-node.yml'
+  pull_request:
+    paths:
+      - 'gateway/**'
+      - '.github/workflows/ci-gateway-node.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gateway
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+          cache-dependency-path: gateway/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test

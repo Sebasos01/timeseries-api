@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  # db:
+  #   image: timescale/timescaledb:latest
+  #   # Phase 1: wire environment variables from .env
+  #
+  # search:
+  #   image: opensearchproject/opensearch:latest
+  #
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #
+  # grafana:
+  #   image: grafana/grafana:latest
+  #
+  # otelcol:
+  #   image: otel/opentelemetry-collector:latest
+  #
+  # service:
+  #   build: ../../service
+  #
+  # gateway:
+  #   build: ../../gateway
