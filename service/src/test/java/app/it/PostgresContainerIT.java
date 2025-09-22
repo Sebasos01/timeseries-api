@@ -2,6 +2,7 @@ package app.it;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -11,16 +12,24 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 @SpringBootTest
 @Testcontainers
 class PostgresContainerIT {
 
+  private static final DockerImageName TIMESCALE_IMAGE = DockerImageName
+      .parse("timescale/timescaledb:2.17.2-pg16")
+      .asCompatibleSubstituteFor("postgres");
+
   @Container
-  static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16");
+  static final PostgreSQLContainer<?> POSTGRES =
+      new PostgreSQLContainer<>(TIMESCALE_IMAGE)
+          .withInitScript("test-init-timescaledb.sql");
 
   @DynamicPropertySource
   static void configureDataSource(DynamicPropertyRegistry registry) {
+    POSTGRES.start();
     registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
@@ -31,7 +40,15 @@ class PostgresContainerIT {
 
   @Test
   void flywayRanAgainstContainer() {
-    Integer result = jdbcTemplate.queryForObject("select count(1) from flyway_baseline", Integer.class);
-    assertThat(result).isGreaterThanOrEqualTo(0);
+    List<String> tables = jdbcTemplate.queryForList(
+        """
+        SELECT table_name FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name IN ('series', 'series_data', 'series_data_history')
+        ORDER BY table_name
+        """,
+        String.class);
+
+    assertThat(tables).containsExactly("series", "series_data", "series_data_history");
   }
 }
