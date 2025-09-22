@@ -3,6 +3,7 @@
 /build/
 /dist/
 /.gradle/
+**/.gradle/
 /node_modules/
 build/
 dist/

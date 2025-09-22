@@ -41,3 +41,30 @@ timeseries-api/
    ```
 
 The repository follows Conventional Commits and keeps security controls (authn/z, rate limits, secrets via env) front and center even in placeholders.
+
+## Local dev stack
+
+The Phase 1 Docker Compose stack mirrors the Architecture Guide’s split gateway/service topology and seeds observability plumbing (Prometheus, Grafana, OpenTelemetry).
+
+```bash
+cd ops/docker
+cp ../../.env.example ../../.env  # if not already present
+# Core stack
+docker compose up --build
+# Optional services
+docker compose --profile redis up --build
+docker compose --profile jaeger up --build
+```
+
+Key endpoints once the stack is healthy:
+
+- Gateway health: http://localhost:8081/health → `{ "ok": true }`
+- Service actuator health: http://localhost:8080/actuator/health → `{"status":"UP"}`
+- OpenSearch banner: http://localhost:9200
+- Prometheus: http://localhost:9090 (scrapes the service at `/actuator/prometheus`)
+- Grafana: http://localhost:3001 (default admin/admin, update on first login)
+- OTEL collector health: http://localhost:13133/healthz
+- (Profile) Redis: http://localhost:6379
+- (Profile) Jaeger UI: http://localhost:16686
+
+Use `make up`, `make down`, `make logs`, or `make ps` from the repo root as shortcuts for the same compose operations.

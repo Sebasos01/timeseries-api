@@ -1,24 +1,150 @@
 version: "3.9"
+name: timeseries-local
+networks: { devnet: { driver: bridge } }
+volumes:
+  dbdata: {}
+  opensearch-data: {}
+  grafana-data: {}
 
 services:
-  # db:
-  #   image: timescale/timescaledb:latest
-  #   # Phase 1: wire environment variables from .env
-  #
-  # search:
-  #   image: opensearchproject/opensearch:latest
-  #
-  # prometheus:
-  #   image: prom/prometheus:latest
-  #
-  # grafana:
-  #   image: grafana/grafana:latest
-  #
-  # otelcol:
-  #   image: otel/opentelemetry-collector:latest
-  #
-  # service:
-  #   build: ../../service
-  #
-  # gateway:
-  #   build: ../../gateway
+  db:
+    image: timescale/timescaledb:2.15.2-pg16
+    container_name: ts-db
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-timeseries}
+    ports: [ "5432:5432" ]
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    networks: [ devnet ]
+
+  search:
+    image: opensearchproject/opensearch:2.14.0
+    container_name: ts-search
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    ports: [ "9200:9200" ]
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD", "bash", "-c", "wget -qO- http://127.0.0.1:9200 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks: [ devnet ]
+
+  prometheus:
+    image: prom/prometheus
+    container_name: ts-prom
+    ports: [ "9090:9090" ]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+    networks: [ devnet ]
+
+  grafana:
+    image: grafana/grafana
+    container_name: ts-grafana
+    ports: [ "3001:3000" ]
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+    environment:
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks: [ devnet ]
+
+  otelcol:
+    image: otel/opentelemetry-collector:latest
+    container_name: ts-otelcol
+    command: [ "--config=/etc/otelcol/config.yaml" ]
+    volumes:
+      - ./otel-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "wget -qO- http://127.0.0.1:13133/healthz >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks: [ devnet ]
+
+  # Optional Redis (enable with --profile redis)
+  redis:
+    image: redis:7.2
+    container_name: ts-redis
+    ports: [ "6379:6379" ]
+    profiles: [ "redis" ]
+    restart: unless-stopped
+    networks: [ devnet ]
+
+  # Optional Jaeger UI (enable with --profile jaeger)
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: ts-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686"
+      - "4320:4317"
+      - "4321:4318"
+    profiles: [ "jaeger" ]
+    restart: unless-stopped
+    networks: [ devnet ]
+
+  service:
+    build:
+      context: ../../service
+    container_name: ts-service
+    env_file: ../../.env
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/${POSTGRES_DB:-timeseries}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol:4317
+    depends_on:
+      db:       { condition: service_healthy }
+      search:   { condition: service_started }
+      otelcol:  { condition: service_started }
+    ports: [ "8080:8080" ]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "wget -qO- http://127.0.0.1:8080/actuator/health | grep '\"status\":\"UP\"' >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks: [ devnet ]
+
+  gateway:
+    build:
+      context: ../../gateway
+    container_name: ts-gateway
+    env_file: ../../.env
+    depends_on:
+      service: { condition: service_healthy }
+    ports: [ "8081:8081" ]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "wget -qO- http://127.0.0.1:8081/health >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    networks: [ devnet ]
