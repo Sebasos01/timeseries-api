@@ -28,7 +28,7 @@ dependencies {
   implementation("io.micrometer:micrometer-registry-prometheus")
   implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
-  implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.12")
+  implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13")
   implementation("io.github.resilience4j:resilience4j-spring-boot3:2.3.0")
   implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-csv")
 
