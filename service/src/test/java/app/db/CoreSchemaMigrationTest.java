@@ -28,7 +28,7 @@ import org.testcontainers.utility.DockerImageName;
 @SpringBootTest
 @Testcontainers
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class MigrationV1Test {
+class CoreSchemaMigrationTest {
 
   private static final String AS_OF_QUERY = """
       SELECT sd.series_id, sd.ts_date, sd.value

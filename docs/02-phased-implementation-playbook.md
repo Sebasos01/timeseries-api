@@ -223,7 +223,7 @@ spring:
 
 **Outcome:** normalized metadata + time‑series tables, point‑in‑time (revision) support, and a hypertable for performant ranges.
 
-`service/src/main/resources/db/migration/V1__core_tables.sql`:
+`service/src/main/resources/db/migration/V2__core_tables.sql`:
 
 ```sql
 CREATE TABLE series (
@@ -263,6 +263,8 @@ SELECT create_hypertable('series_data', 'ts_date', if_not_exists => TRUE);
 -- SELECT create_hypertable('series_data', 'ts_date', chunk_time_interval => INTERVAL '1 year',
 --                          partitioning_column => 'series_id', number_partitions => 8, if_not_exists => TRUE);
 ```
+
+> `V1__bootstrap.sql` stays in place (unchanged) so environments that already ran Phase 2 avoid Flyway checksum mismatches. Phase 3 introduces the new V2 migration alongside that stub.
 
 * Hypertables provide fast time‑range queries and compression—proven for time‑series data. ([MDN Web Docs][2])
 

@@ -1,0 +1,554 @@
+#1 [internal] load local bake definitions
+#1 reading from stdin 1.14kB done
+#1 DONE 0.0s
+
+#2 [service internal] load build definition from Dockerfile
+#2 transferring dockerfile: 385B done
+#2 DONE 0.0s
+
+#3 [gateway internal] load build definition from Dockerfile
+#3 transferring dockerfile: 367B done
+#3 DONE 0.0s
+
+#4 [gateway] resolve image config for docker-image://docker.io/docker/dockerfile:1
+#4 DONE 1.3s
+
+#5 [gateway] docker-image://docker.io/docker/dockerfile:1@sha256:dabfc0969b935b2080555ace70ee69a5261af8a8f1b4df97b9e7fbcf6722eddf
+#5 CACHED
+
+#6 [service internal] load metadata for docker.io/library/eclipse-temurin:21-jdk
+#6 ...
+
+#7 [gateway internal] load metadata for docker.io/library/node:22-slim
+#7 DONE 0.7s
+
+#6 [service internal] load metadata for docker.io/library/eclipse-temurin:21-jdk
+#6 DONE 0.7s
+
+#8 [service internal] load metadata for docker.io/library/eclipse-temurin:21-jre
+#8 DONE 0.7s
+
+#9 [gateway internal] load .dockerignore
+#9 transferring context: 72B done
+#9 DONE 0.0s
+
+#10 [service internal] load .dockerignore
+#10 transferring context: 63B done
+#10 DONE 0.0s
+
+#11 [gateway build 1/7] FROM docker.io/library/node:22-slim@sha256:4a4884e8a44826194dff92ba316264f392056cbe243dcc9fd3551e71cea02b90
+#11 DONE 0.0s
+
+#12 [service stage-1 1/3] FROM docker.io/library/eclipse-temurin:21-jre@sha256:9dc74491b9c961b24cd16939b26c4dc82259df7f55677b232392d85eef7f6ed0
+#12 DONE 0.0s
+
+#13 [service build 1/7] FROM docker.io/library/eclipse-temurin:21-jdk@sha256:40f9bb2bba5571ed0bb8d16f089afd2dbabb0d5fd727767c311330b8c604f4b0
+#13 DONE 0.0s
+
+#14 [gateway internal] load build context
+#14 transferring context: 157B done
+#14 DONE 0.0s
+
+#15 [service internal] load build context
+#15 transferring context: 1.87kB done
+#15 DONE 0.0s
+
+#16 [gateway build 6/7] COPY src src
+#16 CACHED
+
+#17 [gateway build 5/7] COPY tsconfig.json ./
+#17 CACHED
+
+#18 [gateway build 4/7] RUN npm ci
+#18 CACHED
+
+#19 [gateway build 2/7] WORKDIR /app
+#19 CACHED
+
+#20 [gateway stage-1 4/5] RUN npm ci --omit=dev
+#20 CACHED
+
+#21 [gateway build 3/7] COPY package*.json ./
+#21 CACHED
+
+#22 [gateway build 7/7] RUN npm run build
+#22 CACHED
+
+#23 [gateway stage-1 5/5] COPY --from=build /app/dist dist
+#23 CACHED
+
+#24 [service build 5/7] COPY build.gradle.kts settings.gradle.kts ./
+#24 CACHED
+
+#25 [service build 2/7] WORKDIR /app
+#25 CACHED
+
+#26 [service build 4/7] COPY gradle gradle
+#26 CACHED
+
+#27 [service build 6/7] COPY src src
+#27 CACHED
+
+#28 [service build 3/7] COPY gradlew .
+#28 CACHED
+
+#29 [service stage-1 2/3] WORKDIR /app
+#29 CACHED
+
+#30 [service build 7/7] RUN ./gradlew bootJar --no-daemon
+#30 CACHED
+
+#31 [service stage-1 3/3] COPY --from=build /app/build/libs/*.jar app.jar
+#31 CACHED
+
+#32 [gateway] exporting to image
+#32 exporting layers done
+#32 writing image sha256:8382d129263cc73d8951a8d2cf4e4f7a7430024b019cc2ab86b101efa104414a done
+#32 naming to docker.io/library/timeseries-local-gateway done
+#32 DONE 0.0s
+
+#33 [service] exporting to image
+#33 exporting layers done
+#33 writing image sha256:f775326966961fc51b2f084e1010898223b1ce5b369238d4d13922295cbfd0b5 done
+#33 naming to docker.io/library/timeseries-local-service done
+#33 DONE 0.0s
+
+#34 [gateway] resolving provenance for metadata file
+#34 DONE 0.0s
+
+#35 [service] resolving provenance for metadata file
+#35 DONE 0.0s
+ timeseries-local-service  Built
+ timeseries-local-gateway  Built
+ Network timeseries-local_devnet  Creating
+ Network timeseries-local_devnet  Created
+ Container ts-search  Creating
+ Container ts-otelcol  Creating
+ Container ts-grafana  Creating
+ Container ts-db  Creating
+ Container ts-prom  Creating
+ Container ts-grafana  Created
+ Container ts-otelcol  Created
+ Container ts-search  Created
+ Container ts-db  Created
+ Container ts-service  Creating
+ Container ts-prom  Created
+ Container ts-service  Created
+ Container ts-gateway  Creating
+ Container ts-gateway  Created
+Attaching to ts-db, ts-gateway, ts-grafana, ts-otelcol, ts-prom, ts-search, ts-service
+ts-search  | Enabling OpenSearch Security Plugin
+ts-search  | Enabling execution of install_demo_configuration.sh for OpenSearch Security Plugin 
+ts-search  | OpenSearch 2.12.0 onwards, the OpenSearch Security Plugin a change that requires an initial password for 'admin' user. 
+ts-search  | Please define an environment variable 'OPENSEARCH_INITIAL_ADMIN_PASSWORD' with a strong password string. 
+ts-search  | If a password is not provided, the setup will quit. 
+ts-search  |  For more details, please visit: https://opensearch.org/docs/latest/install-and-configure/install-opensearch/docker/
+ts-db      | 
+ts-db      | PostgreSQL Database directory appears to contain a database; Skipping initialization
+ts-db      | 
+ts-otelcol  | 2025-09-24T03:30:52.928Z	info	builders/extension.go:50	Unmaintained component. Actively looking for contributors. Component will become deprecated after 3 months of remaining unmaintained.	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}, "otelcol.component.id": "health_check", "otelcol.component.kind": "extension"}
+ts-otelcol  | 2025-09-24T03:30:52.929Z	info	service@v0.135.0/service.go:211	Starting otelcol...	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}, "Version": "0.135.0", "NumCPU": 8}
+ts-otelcol  | 2025-09-24T03:30:52.929Z	info	extensions/extensions.go:41	Starting extensions...	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}}
+ts-otelcol  | 2025-09-24T03:30:52.929Z	info	extensions/extensions.go:45	Extension is starting...	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}, "otelcol.component.id": "health_check", "otelcol.component.kind": "extension"}
+ts-otelcol  | 2025-09-24T03:30:52.929Z	info	healthcheckextension@v0.135.0/healthcheckextension.go:32	Starting health_check extension	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}, "otelcol.component.id": "health_check", "otelcol.component.kind": "extension", "config": {"Endpoint":"0.0.0.0:13133","TLS":{},"CORS":{},"Auth":{},"MaxRequestBodySize":0,"IncludeMetadata":false,"ResponseHeaders":null,"CompressionAlgorithms":null,"ReadTimeout":0,"ReadHeaderTimeout":0,"WriteTimeout":0,"IdleTimeout":0,"Middlewares":null,"Path":"/","ResponseBody":null,"CheckCollectorPipeline":{"Enabled":false,"Interval":"5m","ExporterFailureThreshold":5}}}
+ts-otelcol  | 2025-09-24T03:30:52.929Z	info	extensions/extensions.go:62	Extension started.	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}, "otelcol.component.id": "health_check", "otelcol.component.kind": "extension"}
+ts-otelcol  | 2025-09-24T03:30:52.930Z	info	otlpreceiver@v0.135.0/otlp.go:121	Starting GRPC server	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}, "otelcol.component.id": "otlp", "otelcol.component.kind": "receiver", "endpoint": "127.0.0.1:4317"}
+ts-otelcol  | 2025-09-24T03:30:52.930Z	info	otlpreceiver@v0.135.0/otlp.go:179	Starting HTTP server	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}, "otelcol.component.id": "otlp", "otelcol.component.kind": "receiver", "endpoint": "127.0.0.1:4318"}
+ts-otelcol  | 2025-09-24T03:30:52.930Z	info	healthcheck/handler.go:131	Health Check state change	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}, "otelcol.component.id": "health_check", "otelcol.component.kind": "extension", "status": "ready"}
+ts-otelcol  | 2025-09-24T03:30:52.930Z	info	service@v0.135.0/service.go:234	Everything is ready. Begin running and processing data.	{"resource": {"service.instance.id": "db113568-da89-405d-805e-9c7e84c52af5", "service.name": "otelcol", "service.version": "0.135.0"}}
+ts-db       | 2025-09-24 03:30:52.954 UTC [1] LOG:  starting PostgreSQL 16.3 on x86_64-pc-linux-musl, compiled by gcc (Alpine 13.2.1_git20240309) 13.2.1 20240309, 64-bit
+ts-db       | 2025-09-24 03:30:52.954 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+ts-db       | 2025-09-24 03:30:52.954 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+ts-db       | 2025-09-24 03:30:52.958 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+ts-db       | 2025-09-24 03:30:52.963 UTC [29] LOG:  database system was shut down at 2025-09-24 03:29:54 UTC
+ts-db       | 2025-09-24 03:30:52.969 UTC [1] LOG:  database system is ready to accept connections
+ts-db       | 2025-09-24 03:30:52.971 UTC [32] LOG:  TimescaleDB background worker launcher connected to shared catalogs
+ts-search   | ### OpenSearch Security Demo Installer
+ts-search   | ### ** Warning: Do not use on production or public reachable systems **
+ts-search   | OpenSearch install type: rpm/deb on Linux 6.16.8-arch2-1 amd64
+ts-search   | OpenSearch config dir: /usr/share/opensearch/config/
+ts-search   | OpenSearch config file: /usr/share/opensearch/config/opensearch.yml
+ts-search   | OpenSearch bin dir: /usr/share/opensearch/bin/
+ts-search   | OpenSearch plugins dir: /usr/share/opensearch/plugins/
+ts-search   | OpenSearch lib dir: /usr/share/opensearch/lib/
+ts-search   | Detected OpenSearch Version: 2.14.0
+ts-search   | Detected OpenSearch Security Version: 2.14.0.0
+ts-prom     | time=2025-09-24T03:30:53.213Z level=INFO source=main.go:1545 msg="updated GOGC" old=100 new=75
+ts-prom     | time=2025-09-24T03:30:53.216Z level=INFO source=main.go:677 msg="Leaving GOMAXPROCS=8: CPU quota undefined" component=automaxprocs
+ts-prom     | time=2025-09-24T03:30:53.216Z level=INFO source=memlimit.go:198 msg="GOMEMLIMIT is updated" component=automemlimit package=github.com/KimMachineGun/automemlimit/memlimit GOMEMLIMIT=14853596774 previous=9223372036854775807
+ts-prom     | time=2025-09-24T03:30:53.216Z level=INFO source=main.go:719 msg="No time or size retention was set so using the default time retention" duration=15d
+ts-prom     | time=2025-09-24T03:30:53.217Z level=INFO source=main.go:770 msg="Starting Prometheus Server" mode=server version="(version=3.6.0, branch=HEAD, revision=491734606591ef8c188f5489c70380805bc868c0)"
+ts-prom     | time=2025-09-24T03:30:53.217Z level=INFO source=main.go:775 msg="operational information" build_context="(go=go1.24.7, platform=linux/amd64, user=root@bfdf1aa26e4d, date=20250921-19:51:16, tags=netgo,builtinassets)" host_details="(Linux 6.16.8-arch2-1 #1 SMP PREEMPT_DYNAMIC Sun, 21 Sep 2025 23:19:08 +0000 x86_64 ecfdfcc98159 (none))" fd_limits="(soft=524287, hard=524288)" vm_limits="(soft=unlimited, hard=unlimited)"
+ts-prom     | time=2025-09-24T03:30:53.222Z level=INFO source=web.go:659 msg="Start listening for connections" component=web address=0.0.0.0:9090
+ts-prom     | time=2025-09-24T03:30:53.223Z level=INFO source=main.go:1289 msg="Starting TSDB ..."
+ts-prom     | time=2025-09-24T03:30:53.226Z level=INFO source=tls_config.go:347 msg="Listening on" component=web address=[::]:9090
+ts-prom     | time=2025-09-24T03:30:53.226Z level=INFO source=tls_config.go:350 msg="TLS is disabled." component=web http2=false address=[::]:9090
+ts-prom     | time=2025-09-24T03:30:53.232Z level=INFO source=head.go:667 msg="Replaying on-disk memory mappable chunks if any" component=tsdb
+ts-prom     | time=2025-09-24T03:30:53.233Z level=INFO source=head.go:754 msg="On-disk memory mappable chunks replay completed" component=tsdb duration=1.254µs
+ts-prom     | time=2025-09-24T03:30:53.234Z level=INFO source=head.go:762 msg="Replaying WAL, this may take a while" component=tsdb
+ts-prom     | time=2025-09-24T03:30:53.235Z level=INFO source=head.go:835 msg="WAL segment loaded" component=tsdb segment=0 maxSegment=0 duration=257.339µs
+ts-prom     | time=2025-09-24T03:30:53.235Z level=INFO source=head.go:872 msg="WAL replay completed" component=tsdb checkpoint_replay_duration=442.129µs wal_replay_duration=304.631µs wbl_replay_duration=139ns chunk_snapshot_load_duration=0s mmap_chunk_replay_duration=1.254µs total_replay_duration=1.609428ms
+ts-prom     | time=2025-09-24T03:30:53.239Z level=INFO source=main.go:1310 msg="filesystem information" fs_type=EXT4_SUPER_MAGIC
+ts-prom     | time=2025-09-24T03:30:53.239Z level=INFO source=main.go:1313 msg="TSDB started"
+ts-prom     | time=2025-09-24T03:30:53.239Z level=INFO source=main.go:1498 msg="Loading configuration file" filename=/etc/prometheus/prometheus.yml
+ts-prom     | time=2025-09-24T03:30:53.240Z level=INFO source=main.go:1538 msg="Completed loading of configuration file" db_storage=1.536µs remote_storage=1.621µs web_handler=349ns query_engine=1.197µs scrape=1.234481ms scrape_sd=25.135µs notify=1.151µs notify_sd=586ns rules=1.595µs tracing=7.096µs filename=/etc/prometheus/prometheus.yml totalDuration=1.523663ms
+ts-prom     | time=2025-09-24T03:30:53.240Z level=INFO source=main.go:1274 msg="Server is ready to receive web requests."
+ts-prom     | time=2025-09-24T03:30:53.240Z level=INFO source=manager.go:176 msg="Starting rule manager..." component="rule manager"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994316408Z level=info msg="Starting Grafana" version=12.1.1 commit=df5de8219b41d1e639e003bf5f3a85913761d167 branch=release-12.1.1 compiled=2025-09-24T03:30:53Z
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994721213Z level=info msg="Config loaded from" file=/usr/share/grafana/conf/defaults.ini
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994734801Z level=info msg="Config loaded from" file=/etc/grafana/grafana.ini
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994739359Z level=info msg="Config overridden from command line" arg="default.paths.data=/var/lib/grafana"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994742986Z level=info msg="Config overridden from command line" arg="default.paths.logs=/var/log/grafana"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994746864Z level=info msg="Config overridden from command line" arg="default.paths.plugins=/var/lib/grafana/plugins"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994750036Z level=info msg="Config overridden from command line" arg="default.paths.provisioning=/etc/grafana/provisioning"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994753213Z level=info msg="Config overridden from command line" arg="default.log.mode=console"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994756665Z level=info msg="Config overridden from Environment variable" var="GF_PATHS_DATA=/var/lib/grafana"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.99476046Z level=info msg="Config overridden from Environment variable" var="GF_PATHS_LOGS=/var/log/grafana"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.99476389Z level=info msg="Config overridden from Environment variable" var="GF_PATHS_PLUGINS=/var/lib/grafana/plugins"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994767086Z level=info msg="Config overridden from Environment variable" var="GF_PATHS_PROVISIONING=/etc/grafana/provisioning"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.99477027Z level=info msg="Config overridden from Environment variable" var="GF_SERVER_ROOT_URL=http://localhost:3001"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994773322Z level=info msg="Config overridden from Environment variable" var="GF_USERS_ALLOW_SIGN_UP=false"
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994777858Z level=info msg=Target target=[all]
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994787888Z level=info msg="Path Home" path=/usr/share/grafana
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994791203Z level=info msg="Path Data" path=/var/lib/grafana
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994794064Z level=info msg="Path Logs" path=/var/log/grafana
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994797752Z level=info msg="Path Plugins" path=/var/lib/grafana/plugins
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994800584Z level=info msg="Path Provisioning" path=/etc/grafana/provisioning
+ts-grafana  | logger=settings t=2025-09-24T03:30:53.994803501Z level=info msg="App mode production"
+ts-grafana  | logger=featuremgmt t=2025-09-24T03:30:53.995316037Z level=info msg=FeatureToggles logRowsPopoverMenu=true newPDFRendering=true improvedExternalSessionHandlingSAML=true improvedExternalSessionHandling=true correlations=true lokiLabelNamesQueryApi=true azureMonitorEnableUserAuth=true preinstallAutoUpdate=true azureMonitorPrometheusExemplars=true influxdbBackendMigration=true teamHttpHeadersMimir=true grafanaconThemes=true alertingRuleVersionHistoryRestore=true nestedFolders=true alertingBulkActionsInUI=true dataplaneFrontendFallback=true publicDashboardsScene=true skipTokenRotationIfRecent=true externalCorePlugins=true transformationsRedesign=true kubernetesClientDashboardsFolders=true cloudWatchNewLabelParsing=true alertingQueryAndExpressionsStepMode=true alertingMigrationUI=true recordedQueriesMulti=true logsPanelControls=true promQLScope=true newFiltersUI=true alertingUIOptimizeReducer=true awsDatasourcesTempCredentials=true cloudWatchRoundUpEndTime=true tlsMemcached=true unifiedStorageSearchPermissionFiltering=true onPremToCloudMigrations=true useSessionStorageForRedirection=true newDashboardSharingComponent=true unifiedStorageHistoryPruner=true annotationPermissionUpdate=true jaegerBackendMigration=true ssoSettingsSAML=true logsExploreTableVisualisation=true prometheusAzureOverrideAudience=true alertingRulePermanentlyDelete=true groupToNestedTableTransformation=true awsAsyncQueryCaching=true pluginsDetailsRightPanel=true alertingImportYAMLUI=true ssoSettingsLDAP=true addFieldFromCalculationStatFunctions=true logsInfiniteScrolling=true alertRuleRestore=true alertingNotificationsStepMode=true tabularNumbers=true logsContextDatasourceUi=true panelMonitoring=true dashboardSceneForViewers=true alertingRuleRecoverDeleted=true dashboardSceneSolo=true dashboardScene=true formatString=true pinNavItems=true lokiQuerySplitting=true unifiedRequestLog=true cloudWatchCrossAccountQuerying=true dashgpt=true
+ts-grafana  | logger=sqlstore t=2025-09-24T03:30:53.995431625Z level=info msg="Connecting to DB" dbtype=sqlite3
+ts-grafana  | logger=migrator t=2025-09-24T03:30:54.020197015Z level=info msg="Locking database"
+ts-grafana  | logger=migrator t=2025-09-24T03:30:54.020220713Z level=info msg="Starting DB migrations"
+ts-grafana  | logger=migrator t=2025-09-24T03:30:54.043190844Z level=info msg="migrations completed" performed=0 skipped=665 duration=663.126µs
+ts-grafana  | logger=migrator t=2025-09-24T03:30:54.043747013Z level=info msg="Unlocking database"
+ts-grafana  | logger=secrets t=2025-09-24T03:30:54.044449508Z level=info msg="Envelope encryption state" enabled=true currentprovider=secretKey.v1
+ts-grafana  | logger=plugin.angulardetectorsprovider.dynamic t=2025-09-24T03:30:54.143205022Z level=info msg="Restored cache from database" duration=875.521µs
+ts-grafana  | logger=entity-db t=2025-09-24T03:30:54.14763754Z level=info msg="Using database section" db_type=sqlite3
+ts-grafana  | logger=entity-db t=2025-09-24T03:30:54.147933611Z level=info msg="Initializing Resource DB" db_type=sqlite3 open_conn=0 in_use_conn=0 idle_conn=0 max_open_conn=0
+ts-grafana  | logger=resource-migrator t=2025-09-24T03:30:54.157156823Z level=info msg="Locking database"
+ts-grafana  | logger=resource-migrator t=2025-09-24T03:30:54.157202819Z level=info msg="Starting DB migrations"
+ts-grafana  | logger=resource-migrator t=2025-09-24T03:30:54.165306521Z level=info msg="migrations completed" performed=0 skipped=26 duration=44.697µs
+ts-grafana  | logger=resource-migrator t=2025-09-24T03:30:54.165734251Z level=info msg="Unlocking database"
+ts-grafana  | t=2025-09-24T03:30:54.166913089Z level=info caller=logger.go:214 time=2025-09-24T03:30:54.16657513Z msg="Using channel notifier" logger=sql-resource-server
+ts-grafana  | logger=plugin.store t=2025-09-24T03:30:54.170386093Z level=info msg="Loading plugins..."
+ts-grafana  | logger=plugins.registration t=2025-09-24T03:30:54.232148097Z level=error msg="Could not register plugin" pluginId=table error="plugin table is already registered"
+ts-grafana  | logger=plugins.initialization t=2025-09-24T03:30:54.232183179Z level=error msg="Could not initialize plugin" pluginId=table error="plugin table is already registered"
+ts-grafana  | logger=plugins.registration t=2025-09-24T03:30:54.305467578Z level=info msg="Plugin registered" pluginId=grafana-exploretraces-app
+ts-grafana  | logger=plugins.registration t=2025-09-24T03:30:54.39972694Z level=info msg="Plugin registered" pluginId=grafana-lokiexplore-app
+ts-grafana  | logger=plugins.registration t=2025-09-24T03:30:54.445393641Z level=info msg="Plugin registered" pluginId=grafana-metricsdrilldown-app
+ts-grafana  | logger=plugins.registration t=2025-09-24T03:30:54.485743275Z level=info msg="Plugin registered" pluginId=grafana-pyroscope-app
+ts-grafana  | logger=plugin.store t=2025-09-24T03:30:54.485760568Z level=info msg="Plugins loaded" count=57 duration=315.376315ms
+ts-grafana  | logger=query_data t=2025-09-24T03:30:54.494459503Z level=info msg="Query Service initialization"
+ts-grafana  | logger=live.push_http t=2025-09-24T03:30:54.501135375Z level=info msg="Live Push Gateway initialization"
+ts-grafana  | logger=ngalert.notifier component=alertmanager orgID=1 t=2025-09-24T03:30:54.505467658Z level=info msg="Applying new configuration to Alertmanager" configHash=d2c56faca6af2a5772ff4253222f7386
+ts-grafana  | logger=ngalert.writer t=2025-09-24T03:30:54.517190772Z level=info msg="Setting up remote write using data sources" timeout=30s default_datasource_uid=
+ts-grafana  | logger=ngalert t=2025-09-24T03:30:54.517612058Z level=info msg="Using simple database alert instance store"
+ts-grafana  | logger=ngalert.state.manager.persist t=2025-09-24T03:30:54.517628643Z level=info msg="Using sync state persister"
+ts-grafana  | logger=infra.usagestats.collector t=2025-09-24T03:30:54.525275993Z level=info msg="registering usage stat providers" usageStatsProvidersLen=2
+ts-grafana  | logger=grafanaStorageLogger t=2025-09-24T03:30:54.527236702Z level=info msg="Storage starting"
+ts-grafana  | logger=http.server t=2025-09-24T03:30:54.532430744Z level=info msg="HTTP Server Listen" address=[::]:3000 protocol=http subUrl= socket=
+ts-grafana  | logger=ngalert.state.manager t=2025-09-24T03:30:54.533006473Z level=info msg="Warming state cache for startup"
+ts-grafana  | logger=ngalert.multiorg.alertmanager t=2025-09-24T03:30:54.542816294Z level=info msg="Starting MultiOrg Alertmanager"
+ts-grafana  | logger=ngalert.state.manager t=2025-09-24T03:30:54.579784483Z level=info msg="State cache has been initialized" states=0 duration=46.777441ms
+ts-grafana  | logger=ngalert.scheduler t=2025-09-24T03:30:54.579880362Z level=info msg="Starting scheduler" tickInterval=10s maxAttempts=3
+ts-grafana  | logger=ticker t=2025-09-24T03:30:54.58089525Z level=info msg=starting first_tick=2025-09-24T03:31:00Z
+ts-grafana  | logger=provisioning.alerting t=2025-09-24T03:30:54.610491596Z level=info msg="starting to provision alerting"
+ts-grafana  | logger=provisioning.alerting t=2025-09-24T03:30:54.610509182Z level=info msg="finished to provision alerting"
+ts-grafana  | logger=provisioning.dashboard t=2025-09-24T03:30:54.610774975Z level=info msg="starting to provision dashboards"
+ts-grafana  | logger=provisioning.dashboard t=2025-09-24T03:30:54.610783133Z level=info msg="finished to provision dashboards"
+ts-search   | Admin password set successfully.
+ts-search   | ### Success
+ts-search   | ### Execute this script now on all your nodes and then start all nodes
+ts-search   | ### OpenSearch Security will be automatically initialized.
+ts-search   | ### If you like to change the runtime configuration 
+ts-search   | ### change the files in ../../../config/opensearch-security and execute: 
+ts-search   | sudo "/usr/share/opensearch/plugins/opensearch-security/tools/securityadmin.sh" -cd "/usr/share/opensearch/config/opensearch-security" -icl -key "/usr/share/opensearch/config/kirk-key.pem" -cert "/usr/share/opensearch/config/kirk.pem" -cacert "/usr/share/opensearch/config/root-ca.pem" -nhnv
+ts-search   | ### or run ./securityadmin_demo.sh
+ts-search   | ### To use the Security Plugin ConfigurationGUI
+ts-search   | ### To access your secured cluster open https://<hostname>:<HTTP port> and log in with admin/<your-custom-admin-password>.
+ts-search   | ### (Ignore the SSL certificate warning because we installed self-signed demo certificates)
+ts-search   | Enabling execution of OPENSEARCH_HOME/bin/opensearch-performance-analyzer/performance-analyzer-agent-cli for OpenSearch Performance Analyzer Plugin
+ts-grafana  | logger=grafana.update.checker t=2025-09-24T03:30:55.068801131Z level=info msg="Update check succeeded" duration=541.776769ms
+ts-grafana  | logger=plugins.update.checker t=2025-09-24T03:30:55.070381996Z level=info msg="Update check succeeded" duration=543.319423ms
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.535190392Z level=info msg="Adding GroupVersion folder.grafana.app v1beta1 to ResourceManager"
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.535965628Z level=info msg="Adding GroupVersion userstorage.grafana.app v0alpha1 to ResourceManager"
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.537940668Z level=info msg="Adding GroupVersion iam.grafana.app v0alpha1 to ResourceManager"
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.538288716Z level=info msg="Adding GroupVersion features.grafana.app v0alpha1 to ResourceManager"
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.539387195Z level=info msg="Adding GroupVersion playlist.grafana.app v0alpha1 to ResourceManager"
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.542786559Z level=info msg="Adding GroupVersion notifications.alerting.grafana.app v0alpha1 to ResourceManager"
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.549841275Z level=info msg="Adding GroupVersion dashboard.grafana.app v1beta1 to ResourceManager"
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.550653079Z level=info msg="Adding GroupVersion dashboard.grafana.app v0alpha1 to ResourceManager"
+ts-grafana  | logger=grafana-apiserver t=2025-09-24T03:30:55.551399862Z level=info msg="Adding GroupVersion dashboard.grafana.app v2alpha1 to ResourceManager"
+ts-grafana  | logger=app-registry t=2025-09-24T03:30:55.605960507Z level=info msg="app registry initialized"
+ts-search   | WARNING: Using incubator modules: jdk.incubator.vector
+ts-search   | WARNING: A terminally deprecated method in java.lang.System has been called
+ts-search   | WARNING: System::setSecurityManager has been called by org.opensearch.bootstrap.OpenSearch (file:/usr/share/opensearch/lib/opensearch-2.14.0.jar)
+ts-search   | WARNING: Please consider reporting this to the maintainers of org.opensearch.bootstrap.OpenSearch
+ts-search   | WARNING: System::setSecurityManager will be removed in a future release
+ts-search   | Sep 24, 2025 3:30:57 AM sun.util.locale.provider.LocaleProviderAdapter <clinit>
+ts-search   | WARNING: COMPAT locale provider will be removed in a future release
+ts-search   | WARNING: A terminally deprecated method in java.lang.System has been called
+ts-search   | WARNING: System::setSecurityManager has been called by org.opensearch.bootstrap.Security (file:/usr/share/opensearch/lib/opensearch-2.14.0.jar)
+ts-search   | WARNING: Please consider reporting this to the maintainers of org.opensearch.bootstrap.Security
+ts-search   | WARNING: System::setSecurityManager will be removed in a future release
+ts-search   | [2025-09-24T03:30:57,417][INFO ][o.o.n.Node               ] [91c982d30cbb] version[2.14.0], pid[45], build[tar/aaa555453f4713d652b52436874e11ba258d8f03/2024-05-09T18:51:00.973564994Z], OS[Linux/6.16.8-arch2-1/amd64], JVM[Eclipse Adoptium/OpenJDK 64-Bit Server VM/21.0.3/21.0.3+9-LTS]
+ts-search   | [2025-09-24T03:30:57,419][INFO ][o.o.n.Node               ] [91c982d30cbb] JVM home [/usr/share/opensearch/jdk], using bundled JDK/JRE [true]
+ts-search   | [2025-09-24T03:30:57,419][INFO ][o.o.n.Node               ] [91c982d30cbb] JVM arguments [-Xshare:auto, -Dopensearch.networkaddress.cache.ttl=60, -Dopensearch.networkaddress.cache.negative.ttl=10, -XX:+AlwaysPreTouch, -Xss1m, -Djava.awt.headless=true, -Dfile.encoding=UTF-8, -Djna.nosys=true, -XX:-OmitStackTraceInFastThrow, -XX:+ShowCodeDetailsInExceptionMessages, -Dio.netty.noUnsafe=true, -Dio.netty.noKeySetOptimization=true, -Dio.netty.recycler.maxCapacityPerThread=0, -Dio.netty.allocator.numDirectArenas=0, -Dlog4j.shutdownHookEnabled=false, -Dlog4j2.disable.jmx=true, -Djava.security.manager=allow, -Djava.locale.providers=SPI,COMPAT, -Xms1g, -Xmx1g, -XX:+UseG1GC, -XX:G1ReservePercent=25, -XX:InitiatingHeapOccupancyPercent=30, -Djava.io.tmpdir=/tmp/opensearch-6499532033450019555, -XX:+HeapDumpOnOutOfMemoryError, -XX:HeapDumpPath=data, -XX:ErrorFile=logs/hs_err_pid%p.log, -Xlog:gc*,gc+age=trace,safepoint:file=logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m, -Djava.security.manager=allow, --add-modules=jdk.incubator.vector, -Djava.util.concurrent.ForkJoinPool.common.threadFactory=org.opensearch.secure_sm.SecuredForkJoinWorkerThreadFactory, -Dclk.tck=100, -Djdk.attach.allowAttachSelf=true, -Djava.security.policy=/usr/share/opensearch/config/opensearch-performance-analyzer/opensearch_security.policy, --add-opens=jdk.attach/sun.tools.attach=ALL-UNNAMED, -Dopensearch.cgroups.hierarchy.override=/, -Xms512m, -Xmx512m, -XX:MaxDirectMemorySize=268435456, -Dopensearch.path.home=/usr/share/opensearch, -Dopensearch.path.conf=/usr/share/opensearch/config, -Dopensearch.distribution.type=tar, -Dopensearch.bundled_jdk=true]
+ts-search   | [2025-09-24T03:30:58,606][INFO ][o.o.s.s.t.SSLConfig      ] [91c982d30cbb] SSL dual mode is disabled
+ts-search   | [2025-09-24T03:30:58,608][WARN ][o.o.s.OpenSearchSecurityPlugin] [91c982d30cbb] OpenSearch Security plugin installed but disabled. This can expose your configuration (including passwords) to the public.
+ts-search   | [2025-09-24T03:30:59,639][INFO ][o.o.p.c.c.PluginSettings ] [91c982d30cbb] Config: metricsLocation: /dev/shm/performanceanalyzer/, metricsDeletionInterval: 1, httpsEnabled: false, cleanup-metrics-db-files: true, batch-metrics-retention-period-minutes: 7, rpc-port: 9650, webservice-port 9600
+ts-service  | 
+ts-service  |   .   ____          _            __ _ _
+ts-service  |  /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+ts-service  | ( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ts-service  |  \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+ts-service  |   '  |____| .__|_| |_|_| |_\__, | / / / /
+ts-service  |  =========|_|==============|___/=/_/_/_/
+ts-service  | 
+ts-service  |  :: Spring Boot ::                (v3.5.6)
+ts-service  | 
+ts-service  | 2025-09-24T03:31:00.023Z  INFO 1 --- [           main] app.ApiApplication                       : Starting ApiApplication v0.0.1-SNAPSHOT using Java 21.0.8 with PID 1 (/app/app.jar started by root in /app)
+ts-service  | 2025-09-24T03:31:00.027Z  INFO 1 --- [           main] app.ApiApplication                       : No active profile set, falling back to 1 default profile: "default"
+ts-search   | [2025-09-24T03:31:00,469][INFO ][o.o.i.r.ReindexPlugin    ] [91c982d30cbb] ReindexPlugin reloadSPI called
+ts-search   | [2025-09-24T03:31:00,470][INFO ][o.o.i.r.ReindexPlugin    ] [91c982d30cbb] Unable to find any implementation for RemoteReindexExtension
+ts-search   | [2025-09-24T03:31:00,520][INFO ][o.o.j.JobSchedulerPlugin ] [91c982d30cbb] Loaded scheduler extension: opendistro_anomaly_detector, index: .opendistro-anomaly-detector-jobs
+ts-search   | [2025-09-24T03:31:00,558][INFO ][o.o.j.JobSchedulerPlugin ] [91c982d30cbb] Loaded scheduler extension: reports-scheduler, index: .opendistro-reports-definitions
+ts-search   | [2025-09-24T03:31:00,560][INFO ][o.o.j.JobSchedulerPlugin ] [91c982d30cbb] Loaded scheduler extension: opendistro-index-management, index: .opendistro-ism-config
+ts-search   | [2025-09-24T03:31:00,562][INFO ][o.o.j.JobSchedulerPlugin ] [91c982d30cbb] Loaded scheduler extension: scheduler_geospatial_ip2geo_datasource, index: .scheduler-geospatial-ip2geo-datasource
+ts-search   | [2025-09-24T03:31:00,564][INFO ][o.o.j.JobSchedulerPlugin ] [91c982d30cbb] Loaded scheduler extension: opensearch_sap_job, index: .opensearch-sap--job
+ts-search   | [2025-09-24T03:31:00,598][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [aggs-matrix-stats]
+ts-search   | [2025-09-24T03:31:00,599][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [analysis-common]
+ts-search   | [2025-09-24T03:31:00,599][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [cache-common]
+ts-search   | [2025-09-24T03:31:00,599][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [geo]
+ts-search   | [2025-09-24T03:31:00,599][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [ingest-common]
+ts-search   | [2025-09-24T03:31:00,599][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [ingest-geoip]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [ingest-user-agent]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [lang-expression]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [lang-mustache]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [lang-painless]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [mapper-extras]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [opensearch-dashboards]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [parent-join]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [percolator]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [rank-eval]
+ts-search   | [2025-09-24T03:31:00,600][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [reindex]
+ts-search   | [2025-09-24T03:31:00,601][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [repository-url]
+ts-search   | [2025-09-24T03:31:00,601][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [search-pipeline-common]
+ts-search   | [2025-09-24T03:31:00,601][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [systemd]
+ts-search   | [2025-09-24T03:31:00,601][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded module [transport-netty4]
+ts-search   | [2025-09-24T03:31:00,601][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-alerting]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-anomaly-detection]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-asynchronous-search]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-cross-cluster-replication]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-custom-codecs]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-flow-framework]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-geospatial]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-index-management]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-job-scheduler]
+ts-search   | [2025-09-24T03:31:00,602][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-knn]
+ts-search   | [2025-09-24T03:31:00,606][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-ml]
+ts-search   | [2025-09-24T03:31:00,606][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-neural-search]
+ts-search   | [2025-09-24T03:31:00,606][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-notifications]
+ts-search   | [2025-09-24T03:31:00,606][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-notifications-core]
+ts-search   | [2025-09-24T03:31:00,606][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-observability]
+ts-search   | [2025-09-24T03:31:00,606][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-performance-analyzer]
+ts-search   | [2025-09-24T03:31:00,607][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-reports-scheduler]
+ts-search   | [2025-09-24T03:31:00,607][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-security]
+ts-search   | [2025-09-24T03:31:00,607][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-security-analytics]
+ts-search   | [2025-09-24T03:31:00,607][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-skills]
+ts-search   | [2025-09-24T03:31:00,607][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] loaded plugin [opensearch-sql]
+ts-search   | [2025-09-24T03:31:00,700][INFO ][o.o.e.ExtensionsManager  ] [91c982d30cbb] ExtensionsManager initialized
+ts-search   | [2025-09-24T03:31:00,719][DEPRECATION][o.o.d.c.s.Settings       ] [91c982d30cbb] [node.max_local_storage_nodes] setting was deprecated in OpenSearch and will be removed in a future release! See the breaking changes documentation for the next major version.
+ts-search   | [2025-09-24T03:31:00,727][INFO ][o.a.l.s.MemorySegmentIndexInputProvider] [91c982d30cbb] Using MemorySegmentIndexInput with Java 21 or later; to disable start with -Dorg.apache.lucene.store.MMapDirectory.enableMemorySegments=false
+ts-search   | [2025-09-24T03:31:00,738][INFO ][o.o.e.NodeEnvironment    ] [91c982d30cbb] using [1] data paths, mounts [[/usr/share/opensearch/data (/dev/nvme0n1p3)]], net usable_space [10.2gb], net total_space [58.7gb], types [ext4]
+ts-search   | [2025-09-24T03:31:00,738][INFO ][o.o.e.NodeEnvironment    ] [91c982d30cbb] heap size [512mb], compressed ordinary object pointers [true]
+ts-search   | [2025-09-24T03:31:00,860][INFO ][o.o.n.Node               ] [91c982d30cbb] node name [91c982d30cbb], node ID [vBog46nuS5eisKDcXrYhkQ], cluster name [docker-cluster], roles [ingest, remote_cluster_client, data, cluster_manager]
+ts-service  | 2025-09-24T03:31:02.197Z  INFO 1 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+ts-service  | 2025-09-24T03:31:02.302Z  INFO 1 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 67 ms. Found 1 JPA repository interface.
+ts-search   | [2025-09-24T03:31:03,476][DEPRECATION][o.o.d.c.s.Settings       ] [91c982d30cbb] [index.store.hybrid.mmap.extensions] setting was deprecated in OpenSearch and will be removed in a future release! See the breaking changes documentation for the next major version.
+ts-search   | [2025-09-24T03:31:03,483][DEPRECATION][o.o.d.c.s.Settings       ] [91c982d30cbb] [plugins.security.ssl.transport.enforce_hostname_verification] setting was deprecated in OpenSearch and will be removed in a future release! See the breaking changes documentation for the next major version.
+ts-service  | 2025-09-24T03:31:04.304Z  INFO 1 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+ts-search   | [2025-09-24T03:31:04,309][INFO ][o.o.n.p.NeuralSearch     ] [91c982d30cbb] Registering hybrid query phase searcher with feature flag [plugins.neural_search.hybrid_search_disabled]
+ts-service  | 2025-09-24T03:31:04.322Z  INFO 1 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+ts-service  | 2025-09-24T03:31:04.322Z  INFO 1 --- [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.46]
+ts-service  | 2025-09-24T03:31:04.358Z  INFO 1 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+ts-service  | 2025-09-24T03:31:04.359Z  INFO 1 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 4248 ms
+ts-service  | 2025-09-24T03:31:05.304Z  INFO 1 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+ts-search   | [2025-09-24T03:31:05,454][INFO ][o.o.a.b.ADCircuitBreakerService] [91c982d30cbb] Registered memory breaker.
+ts-search   | [2025-09-24T03:31:05,933][INFO ][o.o.m.b.MLCircuitBreakerService] [91c982d30cbb] Registered ML memory breaker.
+ts-search   | [2025-09-24T03:31:05,933][INFO ][o.o.m.b.MLCircuitBreakerService] [91c982d30cbb] Registered ML disk breaker.
+ts-search   | [2025-09-24T03:31:05,933][INFO ][o.o.m.b.MLCircuitBreakerService] [91c982d30cbb] Registered ML native memory breaker.
+ts-search   | [2025-09-24T03:31:06,032][INFO ][o.r.Reflections          ] [91c982d30cbb] Reflections took 46 ms to scan 1 urls, producing 24 keys and 65 values 
+ts-search   | [2025-09-24T03:31:06,115][WARN ][o.o.s.p.SQLPlugin        ] [91c982d30cbb] Master key is a required config for using create and update datasource APIs. Please set plugins.query.datasources.encryption.masterkey config in opensearch.yml in all the cluster nodes. More details can be found here: https://github.com/opensearch-project/sql/blob/main/docs/user/ppl/admin/datasources.rst#master-key-config-for-encrypting-credential-information
+ts-search   | [2025-09-24T03:31:06,724][INFO ][o.o.t.NettyAllocator     ] [91c982d30cbb] creating NettyAllocator with the following configs: [name=unpooled, suggested_max_allocation_size=256kb, factors={opensearch.unsafe.use_unpooled_allocator=null, g1gc_enabled=true, g1gc_region_size=1mb, heap_size=512mb}]
+ts-search   | [2025-09-24T03:31:06,803][INFO ][o.o.d.DiscoveryModule    ] [91c982d30cbb] using discovery type [single-node] and seed hosts providers [settings]
+ts-search   | [2025-09-24T03:31:07,241][WARN ][o.o.g.DanglingIndicesState] [91c982d30cbb] gateway.auto_import_dangling_indices is disabled, dangling indices will not be automatically detected or imported and must be managed manually
+ts-search   | [2025-09-24T03:31:07,873][INFO ][o.o.p.h.c.PerformanceAnalyzerConfigAction] [91c982d30cbb] PerformanceAnalyzer Enabled: false
+ts-search   | [2025-09-24T03:31:07,917][INFO ][o.o.n.Node               ] [91c982d30cbb] initialized
+ts-search   | [2025-09-24T03:31:07,917][INFO ][o.o.n.Node               ] [91c982d30cbb] starting ...
+ts-search   | [2025-09-24T03:31:07,946][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [windows_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,947][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [waf_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,948][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [vpcflow_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,948][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [test_windows_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,949][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [s3_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,950][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [others_web_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,950][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [others_proxy_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,951][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [others_macos_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,952][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [others_compliance_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,953][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [others_cloud_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,953][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [others_apt_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,954][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [others_application_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,955][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [okta_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,956][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [network_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,956][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [netflow_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,957][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [m365_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,958][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [linux_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,959][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [gworkspace_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,959][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [github_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,960][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [dns_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,961][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [cloudtrail_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,962][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [azure_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,963][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [apache_access_logtype.json] log type
+ts-search   | [2025-09-24T03:31:07,963][INFO ][o.o.s.l.BuiltinLogTypeLoader] [91c982d30cbb] Loaded [ad_ldap_logtype.json] log type
+ts-search   | [2025-09-24T03:31:08,075][INFO ][o.o.t.TransportService   ] [91c982d30cbb] publish_address {172.19.0.4:9300}, bound_addresses {[::]:9300}
+ts-search   | [2025-09-24T03:31:08,077][INFO ][o.o.t.TransportService   ] [91c982d30cbb] Remote clusters initialized successfully.
+ts-search   | [2025-09-24T03:31:08,217][INFO ][o.o.c.c.Coordinator      ] [91c982d30cbb] cluster UUID [p5WqBFUCTIabbke6QXRilw]
+ts-search   | [2025-09-24T03:31:08,381][INFO ][o.o.c.s.MasterService    ] [91c982d30cbb] elected-as-cluster-manager ([1] nodes joined)[{91c982d30cbb}{vBog46nuS5eisKDcXrYhkQ}{etmmcSMQTCy1HpIJywgAng}{172.19.0.4}{172.19.0.4:9300}{dimr}{shard_indexing_pressure_enabled=true} elect leader, _BECOME_CLUSTER_MANAGER_TASK_, _FINISH_ELECTION_], term: 7, version: 42, delta: cluster-manager node changed {previous [], current [{91c982d30cbb}{vBog46nuS5eisKDcXrYhkQ}{etmmcSMQTCy1HpIJywgAng}{172.19.0.4}{172.19.0.4:9300}{dimr}{shard_indexing_pressure_enabled=true}]}
+ts-search   | [2025-09-24T03:31:08,471][INFO ][o.o.c.s.ClusterApplierService] [91c982d30cbb] cluster-manager node changed {previous [], current [{91c982d30cbb}{vBog46nuS5eisKDcXrYhkQ}{etmmcSMQTCy1HpIJywgAng}{172.19.0.4}{172.19.0.4:9300}{dimr}{shard_indexing_pressure_enabled=true}]}, term: 7, version: 42, reason: Publication{term=7, version=42}
+ts-search   | [2025-09-24T03:31:08,481][INFO ][o.o.a.c.ADClusterEventListener] [91c982d30cbb] Cluster is not recovered yet.
+ts-search   | [2025-09-24T03:31:08,515][INFO ][o.o.i.i.ManagedIndexCoordinator] [91c982d30cbb] Cache cluster manager node onClusterManager time: 1758684668515
+ts-search   | [2025-09-24T03:31:08,523][WARN ][o.o.p.c.s.h.ConfigOverridesClusterSettingHandler] [91c982d30cbb] Config override setting update called with empty string. Ignoring.
+ts-search   | [2025-09-24T03:31:08,531][INFO ][o.o.d.PeerFinder         ] [91c982d30cbb] setting findPeersInterval to [1s] as node commission status = [true] for local node [{91c982d30cbb}{vBog46nuS5eisKDcXrYhkQ}{etmmcSMQTCy1HpIJywgAng}{172.19.0.4}{172.19.0.4:9300}{dimr}{shard_indexing_pressure_enabled=true}]
+ts-search   | [2025-09-24T03:31:08,534][WARN ][o.o.c.r.a.AllocationService] [91c982d30cbb] Falling back to single shard assignment since batch mode disable or multiple custom allocators set
+ts-search   | [2025-09-24T03:31:08,539][INFO ][o.o.h.AbstractHttpServerTransport] [91c982d30cbb] publish_address {172.19.0.4:9200}, bound_addresses {[::]:9200}
+ts-search   | [2025-09-24T03:31:08,539][INFO ][o.o.n.Node               ] [91c982d30cbb] started
+ts-search   | [2025-09-24T03:31:08,541][INFO ][o.o.s.OpenSearchSecurityPlugin] [91c982d30cbb] 0 OpenSearch Security modules loaded so far: []
+ts-search   | [2025-09-24T03:31:08,546][WARN ][o.o.c.r.a.AllocationService] [91c982d30cbb] Falling back to single shard assignment since batch mode disable or multiple custom allocators set
+ts-search   | [2025-09-24T03:31:08,576][INFO ][o.o.c.s.ClusterSettings  ] [91c982d30cbb] updating [plugins.index_state_management.template_migration.control] from [0] to [-1]
+ts-search   | [2025-09-24T03:31:08,579][INFO ][o.o.a.c.HashRing         ] [91c982d30cbb] Node added: [vBog46nuS5eisKDcXrYhkQ]
+ts-search   | [2025-09-24T03:31:08,582][INFO ][o.o.a.c.HashRing         ] [91c982d30cbb] Add data node to AD version hash ring: vBog46nuS5eisKDcXrYhkQ
+ts-search   | [2025-09-24T03:31:08,584][INFO ][o.o.a.c.HashRing         ] [91c982d30cbb] All nodes with known AD version: {vBog46nuS5eisKDcXrYhkQ=ADNodeInfo{version=2.14.0, isEligibleDataNode=true}}
+ts-search   | [2025-09-24T03:31:08,585][INFO ][o.o.a.c.HashRing         ] [91c982d30cbb] Rebuild AD hash ring for realtime AD with cooldown, nodeChangeEvents size 0
+ts-search   | [2025-09-24T03:31:08,585][INFO ][o.o.a.c.HashRing         ] [91c982d30cbb] Build AD version hash ring successfully
+ts-search   | [2025-09-24T03:31:08,586][INFO ][o.o.a.c.ADDataMigrator   ] [91c982d30cbb] Start migrating AD data
+ts-search   | [2025-09-24T03:31:08,586][INFO ][o.o.a.c.ADDataMigrator   ] [91c982d30cbb] AD job index doesn't exist, no need to migrate
+ts-search   | [2025-09-24T03:31:08,586][INFO ][o.o.a.c.ADClusterEventListener] [91c982d30cbb] Init AD version hash ring successfully
+ts-search   | [2025-09-24T03:31:08,601][INFO ][o.o.g.GatewayService     ] [91c982d30cbb] recovered [3] indices into cluster_state
+ts-search   | [2025-09-24T03:31:08,603][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Loading builtin types!
+ts-search   | [2025-09-24T03:31:08,605][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Indexing [429] fieldMappingDocs from logTypes: 24
+ts-search   | [2025-09-24T03:31:08,626][WARN ][o.o.c.r.a.AllocationService] [91c982d30cbb] Falling back to single shard assignment since batch mode disable or multiple custom allocators set
+ts-search   | [2025-09-24T03:31:08,626][WARN ][o.o.o.i.ObservabilityIndex] [91c982d30cbb] message: index [.opensearch-observability/eguy39E9SEKLYolIsA4w3A] already exists
+ts-search   | [2025-09-24T03:31:08,630][WARN ][o.o.s.SecurityAnalyticsPlugin] [91c982d30cbb] Failed to initialize LogType config index and builtin log types
+ts-search   | [2025-09-24T03:31:08,703][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] PluginService:onIndexModule index:[.opensearch-sap-log-types-config/KGPRLj5kSY-Kv7mdlD_6CA]
+ts-search   | [2025-09-24T03:31:08,804][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] PluginService:onIndexModule index:[.opensearch-observability/eguy39E9SEKLYolIsA4w3A]
+ts-search   | [2025-09-24T03:31:08,816][INFO ][o.o.p.PluginsService     ] [91c982d30cbb] PluginService:onIndexModule index:[.plugins-ml-config/b8Z4judZROyzN9BbwZOSYw]
+ts-search   | [2025-09-24T03:31:08,967][INFO ][o.o.c.r.a.AllocationService] [91c982d30cbb] Cluster health status changed from [RED] to [GREEN] (reason: [shards started [[.plugins-ml-config][0], [.opensearch-sap-log-types-config][0]]]).
+ts-search   | [2025-09-24T03:31:08,992][WARN ][o.o.c.r.a.AllocationService] [91c982d30cbb] Falling back to single shard assignment since batch mode disable or multiple custom allocators set
+ts-search   | [2025-09-24T03:31:09,530][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Loading builtin types!
+ts-search   | [2025-09-24T03:31:09,533][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Indexing [429] fieldMappingDocs from logTypes: 24
+ts-search   | [2025-09-24T03:31:09,552][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Loading builtin types!
+ts-search   | [2025-09-24T03:31:09,553][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Indexing [429] fieldMappingDocs from logTypes: 24
+ts-search   | [2025-09-24T03:31:09,556][INFO ][o.o.s.i.DetectorIndexManagementService] [91c982d30cbb] info deleteOldIndices
+ts-search   | [2025-09-24T03:31:09,559][INFO ][o.o.s.i.DetectorIndexManagementService] [91c982d30cbb] No Old Correlation Indices to delete
+ts-search   | [2025-09-24T03:31:09,695][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Indexing [429] fieldMappingDocs
+ts-search   | [2025-09-24T03:31:09,699][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Indexing [429] fieldMappingDocs
+ts-search   | [2025-09-24T03:31:10,098][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Loaded [429] field mapping docs successfully!
+ts-search   | [2025-09-24T03:31:10,100][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Loaded [429] field mapping docs successfully!
+ts-search   | [2025-09-24T03:31:10,108][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Indexing [23] customLogTypes
+ts-search   | [2025-09-24T03:31:10,118][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Indexing [23] customLogTypes
+ts-search   | [2025-09-24T03:31:10,144][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Loaded [23] customLogType docs successfully!
+ts-search   | [2025-09-24T03:31:10,155][INFO ][o.o.s.l.LogTypeService   ] [91c982d30cbb] Loaded [23] customLogType docs successfully!
+ts-search   | [2025-09-24T03:31:10,191][INFO ][o.o.s.i.DetectorIndexManagementService] [91c982d30cbb] info deleteOldIndices
+ts-search   | [2025-09-24T03:31:10,192][INFO ][o.o.s.i.DetectorIndexManagementService] [91c982d30cbb] No Old Alert Indices to delete
+ts-search   | [2025-09-24T03:31:10,194][INFO ][o.o.s.i.DetectorIndexManagementService] [91c982d30cbb] info deleteOldIndices
+ts-search   | [2025-09-24T03:31:10,194][INFO ][o.o.s.i.DetectorIndexManagementService] [91c982d30cbb] No Old Finding Indices to delete
+ts-service  | 2025-09-24T03:31:16.393Z  WARN 1 --- [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of LoadTimeWeaverAware bean 'entityManagerFactory': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Unable to obtain connection from database: The connection attempt failed.
+ts-service  | -------------------------------------------------------------------------
+ts-service  | SQL State  : 08001
+ts-service  | Error Code : 0
+ts-service  | Message    : The connection attempt failed.
+ts-service  | 
+ts-service  | 2025-09-24T03:31:16.399Z  INFO 1 --- [           main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+ts-service  | 2025-09-24T03:31:16.429Z  INFO 1 --- [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+ts-service  | 
+ts-service  | Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+ts-service  | 2025-09-24T03:31:16.448Z ERROR 1 --- [           main] o.s.boot.SpringApplication               : Application run failed
+ts-service  | 
+ts-service  | org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: Failed to initialize dependency 'flywayInitializer' of LoadTimeWeaverAware bean 'entityManagerFactory': Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Unable to obtain connection from database: The connection attempt failed.
+ts-service  | -------------------------------------------------------------------------
+ts-service  | SQL State  : 08001
+ts-service  | Error Code : 0
+ts-service  | Message    : The connection attempt failed.
+ts-service  | 
+ts-service  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:328) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:207) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.context.support.AbstractApplicationContext.finishBeanFactoryInitialization(AbstractApplicationContext.java:970) ~[spring-context-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:627) ~[spring-context-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:146) ~[spring-boot-3.5.6.jar!/:3.5.6]
+ts-service  | 	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:752) ~[spring-boot-3.5.6.jar!/:3.5.6]
+ts-service  | 	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:439) ~[spring-boot-3.5.6.jar!/:3.5.6]
+ts-service  | 	at org.springframework.boot.SpringApplication.run(SpringApplication.java:318) ~[spring-boot-3.5.6.jar!/:3.5.6]
+ts-service  | 	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1361) ~[spring-boot-3.5.6.jar!/:3.5.6]
+ts-service  | 	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1350) ~[spring-boot-3.5.6.jar!/:3.5.6]
+ts-service  | 	at app.ApiApplication.main(ApiApplication.java:10) ~[!/:0.0.1-SNAPSHOT]
+ts-service  | 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(Unknown Source) ~[na:na]
+ts-service  | 	at java.base/java.lang.reflect.Method.invoke(Unknown Source) ~[na:na]
+ts-service  | 	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:102) ~[app.jar:0.0.1-SNAPSHOT]
+ts-service  | 	at org.springframework.boot.loader.launch.Launcher.launch(Launcher.java:64) ~[app.jar:0.0.1-SNAPSHOT]
+ts-service  | 	at org.springframework.boot.loader.launch.JarLauncher.main(JarLauncher.java:40) ~[app.jar:0.0.1-SNAPSHOT]
+ts-service  | Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer' defined in class path resource [org/springframework/boot/autoconfigure/flyway/FlywayAutoConfiguration$FlywayConfiguration.class]: Unable to obtain connection from database: The connection attempt failed.
+ts-service  | -------------------------------------------------------------------------
+ts-service  | SQL State  : 08001
+ts-service  | Error Code : 0
+ts-service  | Message    : The connection attempt failed.
+ts-service  | 
+ts-service  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1826) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:607) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:529) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:339) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:373) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:337) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:315) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	... 15 common frames omitted
+ts-service  | Caused by: org.flywaydb.core.internal.exception.FlywaySqlException: Unable to obtain connection from database: The connection attempt failed.
+ts-service  | -------------------------------------------------------------------------
+ts-service  | SQL State  : 08001
+ts-service  | Error Code : 0
+ts-service  | Message    : The connection attempt failed.
+ts-service  | 
+ts-service  | 	at org.flywaydb.core.internal.jdbc.JdbcUtils.openConnection(JdbcUtils.java:71) ~[flyway-core-11.7.2.jar!/:na]
+ts-service  | 	at org.flywaydb.core.internal.jdbc.JdbcConnectionFactory.<init>(JdbcConnectionFactory.java:76) ~[flyway-core-11.7.2.jar!/:na]
+ts-service  | 	at org.flywaydb.core.FlywayExecutor.execute(FlywayExecutor.java:136) ~[flyway-core-11.7.2.jar!/:na]
+ts-service  | 	at org.flywaydb.core.Flyway.migrate(Flyway.java:188) ~[flyway-core-11.7.2.jar!/:na]
+ts-service  | 	at org.springframework.boot.autoconfigure.flyway.FlywayMigrationInitializer.afterPropertiesSet(FlywayMigrationInitializer.java:66) ~[spring-boot-autoconfigure-3.5.6.jar!/:3.5.6]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.invokeInitMethods(AbstractAutowireCapableBeanFactory.java:1873) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.initializeBean(AbstractAutowireCapableBeanFactory.java:1822) ~[spring-beans-6.2.11.jar!/:6.2.11]
+ts-service  | 	... 22 common frames omitted
+ts-service  | Caused by: org.postgresql.util.PSQLException: The connection attempt failed.
+ts-service  | 	at org.postgresql.core.v3.ConnectionFactoryImpl.openConnectionImpl(ConnectionFactoryImpl.java:385) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	at org.postgresql.core.ConnectionFactory.openConnection(ConnectionFactory.java:57) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	at org.postgresql.jdbc.PgConnection.<init>(PgConnection.java:277) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	at org.postgresql.Driver.makeConnection(Driver.java:448) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	at org.postgresql.Driver.connect(Driver.java:298) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	at com.zaxxer.hikari.util.DriverDataSource.getConnection(DriverDataSource.java:144) ~[HikariCP-6.3.3.jar!/:na]
+ts-service  | 	at com.zaxxer.hikari.pool.PoolBase.newConnection(PoolBase.java:370) ~[HikariCP-6.3.3.jar!/:na]
+ts-service  | 	at com.zaxxer.hikari.pool.PoolBase.newPoolEntry(PoolBase.java:207) ~[HikariCP-6.3.3.jar!/:na]
+ts-service  | 	at com.zaxxer.hikari.pool.HikariPool.createPoolEntry(HikariPool.java:488) ~[HikariCP-6.3.3.jar!/:na]
+ts-service  | 	at com.zaxxer.hikari.pool.HikariPool.checkFailFast(HikariPool.java:576) ~[HikariCP-6.3.3.jar!/:na]
+ts-service  | 	at com.zaxxer.hikari.pool.HikariPool.<init>(HikariPool.java:97) ~[HikariCP-6.3.3.jar!/:na]
+ts-service  | 	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:111) ~[HikariCP-6.3.3.jar!/:na]
+ts-service  | 	at org.flywaydb.core.internal.jdbc.JdbcUtils.openConnection(JdbcUtils.java:59) ~[flyway-core-11.7.2.jar!/:na]
+ts-service  | 	... 28 common frames omitted
+ts-service  | Caused by: java.net.SocketTimeoutException: Connect timed out
+ts-service  | 	at java.base/sun.nio.ch.NioSocketImpl.timedFinishConnect(Unknown Source) ~[na:na]
+ts-service  | 	at java.base/sun.nio.ch.NioSocketImpl.connect(Unknown Source) ~[na:na]
+ts-service  | 	at java.base/java.net.SocksSocketImpl.connect(Unknown Source) ~[na:na]
+ts-service  | 	at java.base/java.net.Socket.connect(Unknown Source) ~[na:na]
+ts-service  | 	at org.postgresql.core.PGStream.createSocket(PGStream.java:261) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	at org.postgresql.core.PGStream.<init>(PGStream.java:122) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	at org.postgresql.core.v3.ConnectionFactoryImpl.tryConnect(ConnectionFactoryImpl.java:146) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	at org.postgresql.core.v3.ConnectionFactoryImpl.openConnectionImpl(ConnectionFactoryImpl.java:289) ~[postgresql-42.7.7.jar!/:42.7.7]
+ts-service  | 	... 40 common frames omitted
+ts-service  | 
+dependency failed to start: container ts-service is unhealthy
