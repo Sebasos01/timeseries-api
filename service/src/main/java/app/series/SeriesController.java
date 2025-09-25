@@ -1,4 +1,4 @@
-﻿package app.series;
+package app.series;
 
 import jakarta.validation.constraints.Pattern;
 import java.time.LocalDate;
@@ -32,10 +32,12 @@ public class SeriesController {
 
   private final TimeSeriesService svc;
   private final SeriesSearchService searchService;
+  private final SeriesSyncService syncService;
 
-  public SeriesController(TimeSeriesService svc, SeriesSearchService searchService) {
+  public SeriesController(TimeSeriesService svc, SeriesSearchService searchService, SeriesSyncService syncService) {
     this.svc = svc;
     this.searchService = searchService;
+    this.syncService = syncService;
   }
 
   @GetMapping("/{id}")
@@ -88,7 +90,8 @@ public class SeriesController {
 
   @PostMapping("/batch")
   public ResponseEntity<List<?>> batch() {
-    return ResponseEntity.ok(Collections.emptyList());
+    syncService.reindexAllAsync();
+    return ResponseEntity.accepted().body(Collections.emptyList());
   }
 
   private static <E extends Enum<E>> E parseEnum(String value, Function<String, E> resolver, String field) {
@@ -124,3 +127,6 @@ public class SeriesController {
     return null;
   }
 }
+
+
+

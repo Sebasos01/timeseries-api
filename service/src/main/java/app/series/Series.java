@@ -12,7 +12,7 @@ public class Series {
 
   @Id
   private String seriesId;
-  private String name;
+  private String name;\n  private String description;
   private char frequency;      // 'A','Q','M','W','D'
   private String unit;
   private String geography;

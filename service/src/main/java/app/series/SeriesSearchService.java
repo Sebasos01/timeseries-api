@@ -70,6 +70,46 @@ public class SeriesSearchService {
     }
   }
 
+  public void bulkIndexSeries(List<Series> series) {
+    if (series == null || series.isEmpty()) {
+      return;
+    }
+    final int batchSize = 500;
+    for (int i = 0; i < series.size(); i += batchSize) {
+      int end = Math.min(i + batchSize, series.size());
+      sendBulkBatch(series.subList(i, end));
+    }
+  }
+
+  private void sendBulkBatch(List<Series> batch) {
+    if (batch.isEmpty()) {
+      return;
+    }
+    StringBuilder ndjson = new StringBuilder();
+    try {
+      for (Series series : batch) {
+        ndjson.append("{\"index\":{\"_index\":\"")
+            .append(INDEX)
+            .append("\",\"_id\":\"")
+            .append(series.getSeriesId())
+            .append("\"}}\n");
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("series_id", series.getSeriesId());
+        doc.put("name", series.getName());
+        doc.put("description", series.getDescription());
+        doc.put("geography", series.getGeography());
+        doc.put("frequency", String.valueOf(series.getFrequency()));
+        ndjson.append(mapper.writeValueAsString(doc)).append('\n');
+      }
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.parseMediaType("application/x-ndjson"));
+      HttpEntity<String> entity = new HttpEntity<>(ndjson.toString(), headers);
+      restTemplate.exchange(baseUrl + "/_bulk", HttpMethod.POST, entity, String.class);
+    } catch (Exception ex) {
+      throw new RuntimeException("OpenSearch bulk indexing failed", ex);
+    }
+  }
+
   private Map<String, Object> buildRequestBody(String q, String country, Frequency freq, int from,
       int size) {
     Map<String, Object> multiMatch = Map.of(

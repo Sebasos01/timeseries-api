@@ -89,7 +89,10 @@ Set `AUTH_ENABLED=true` and point `OAUTH_JWKS_URI` at a JWKS endpoint to require
 - **HTTPS only**: deploy the gateway behind CloudFront or an ALB with TLS termination. Helmet already sends HSTS headers so browsers stay on HTTPS.
 - **Authentication & rate limiting**: the gateway enforces a per-client `x-api-key` (stored in `.env` locally, Secrets Manager/SSM in AWS) and throttles requests with `express-rate-limit`.
 - **Least privilege DB access**: connect with the `ts_api_ro` role (SELECT only). Provision the user separately and avoid using superuser credentials in the app configuration.
-- **Secrets management**: never hard-code credentials; load them from environment variables locally and from AWS Secrets Manager/Parameter Store in deployed environments.\n- **Edge protections**: front the gateway with CloudFront + AWS WAF (with Shield Standard) to enforce HTTPS, HSTS, and absorb L3/L4 attacks.
+- **Secrets management**: never hard-code credentials; load them from environment variables locally and from AWS Secrets Manager/Parameter Store in deployed environments.
+- **Edge protections**: front the gateway with CloudFront + AWS WAF (with Shield Standard) to enforce HTTPS, HSTS, and absorb L3/L4 attacks.
 - **Validated inputs**: Spring controllers are annotated with `@Validated`, enforce a `seriesId` regex, and coerce query parameters into enums so invalid values fail fast with 400 responses.
 - **Logging & error handling**: JSON logs (pino-http) include request IDs; Problem Detail responses keep error payloads consistent.
 - Review OWASP cheat sheets for [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Input Validation](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html), [REST Security](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html), and [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) before production hardening.
+- **Reindex**: POST http://localhost:8081/admin/reindex (gateway) triggers the async bulk reindex so newly added series appear in search.
+

@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
@@ -40,6 +40,17 @@ app.get('/v1/series/:id/data', async (req, res) => {
       { params: req.query, headers: { Accept: req.headers.accept ?? 'application/json' } });
     // Mirror ETag/304, cache headers etc.
     if (r.headers.etag) res.setHeader('ETag', r.headers.etag);
+    res.status(r.status).send(r.data);
+  } catch (e:any) {
+    if (e.response) res.status(e.response.status).send(e.response.data);
+    else res.status(502).json({ error: 'Bad Gateway' });
+  }
+});
+
+// Admin reindex proxy
+app.post('/admin/reindex', async (_req, res) => {
+  try {
+    const r = await axios.post(`${JAVA_API}/admin/reindex`);
     res.status(r.status).send(r.data);
   } catch (e:any) {
     if (e.response) res.status(e.response.status).send(e.response.data);
