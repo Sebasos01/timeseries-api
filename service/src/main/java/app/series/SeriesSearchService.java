@@ -1,4 +1,4 @@
-﻿package app.series;
+package app.series;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

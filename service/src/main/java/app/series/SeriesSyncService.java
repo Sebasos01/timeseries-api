@@ -1,4 +1,4 @@
-﻿package app.series;
+package app.series;
 
 import java.util.Collections;
 import java.util.List;

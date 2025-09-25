@@ -1,4 +1,4 @@
-﻿package app.series;
+package app.series;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;

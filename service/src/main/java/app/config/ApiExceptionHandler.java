@@ -1,4 +1,4 @@
-﻿package app.config;
+package app.config;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;

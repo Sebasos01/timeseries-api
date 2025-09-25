@@ -1,4 +1,4 @@
-﻿package app.config;
+package app.config;
 
 import app.series.CsvHttpMessageConverter;
 import java.util.List;

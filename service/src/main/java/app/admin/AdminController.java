@@ -1,4 +1,4 @@
-﻿package app.admin;
+package app.admin;
 
 import app.series.SeriesSyncService;
 import java.util.Map;
