@@ -1,7 +1,7 @@
-Below is a **phased, end‑to‑end implementation guide** you (or a coding agent) can follow to build the **Time Series Data API** with a **Java backend (Spring Boot)** and a **Node.js gateway (Express + TypeScript)**, ready to run locally and AWS‑ready. It **tracks the structure and decisions in your “Original Guide”** (endpoint design, quality attributes, security, performance posture) and turns them into a concrete, reproducible plan.
+﻿Below is a **phased, end‑to‑end implementation guide** you (or a coding agent) can follow to build the **Time Series Data API** with a **Java backend (Spring Boot)** and a **Node.js gateway (Express + TypeScript)**, ready to run locally and AWS‑ready. It **tracks the structure and decisions in your “Original Guide”** (endpoint design, quality attributes, security, performance posture) and turns them into a concrete, reproducible plan.
 
 > **Why these tech choices?**
-> *Java 21 (LTS) + Spring Boot 3* gives first‑class REST, security, metrics, and production operations (Actuator, Micrometer). *Node 22 (LTS)* works as a lightweight façade (API gateway/BFF) to enforce edge security policies (rate‑limit, auth, CORS, gzip) and to proxy to the Java service—mirroring CEIC’s frontend/gateway setup. Java 21 is an LTS release; Spring Boot auto‑wires metrics with Micrometer/Prometheus; Node 22 is supported and current; OpenTelemetry covers tracing for both tiers. ([Oracle][1])
+> *Java 21 (LTS) + Spring Boot 3* gives first‑class REST, security, and production operations (Actuator, Micrometer). *Node 22 (LTS)* works as a lightweight façade (API gateway/BFF) to enforce edge security policies (rate‑limit, auth, CORS, gzip) and to proxy to the Java service—mirroring CEIC’s frontend/gateway setup. Java 21 is an LTS release; Spring Boot auto‑wires diagnostics via Actuator; Node 22 is supported and current; we can bring back deeper monitoring later if needed. ([Oracle][1])
 
 ---
 
@@ -10,7 +10,7 @@ Below is a **phased, end‑to‑end implementation guide** you (or a coding agen
 * **Follow the phases in order.** Each phase has **Done when** checks.
 * **Only “why” comments** in code where non‑obvious (your requirement).
 * **Security & quality attributes** (latency, scalability, resilience, cacheability, observability, etc.) are embedded in the tasks and referenced to your Original Guide sections.
-* **Citations** back key decisions to primary docs (Spring, OWASP, Timescale, OpenTelemetry, etc.).
+* **Citations** back key decisions to primary docs (Spring, OWASP, Timescale, etc.).
 
 ---
 
@@ -53,7 +53,7 @@ timeseries-api/
 
 # Phase 1 — Local dev stack (Docker Compose)
 
-**Outcome:** one command brings up Postgres+Timescale, OpenSearch, Redis (optional), Prometheus/Grafana, Jaeger (or OTLP collector), the Java service, and the Node gateway.
+**Outcome:** one command brings up Postgres+Timescale, OpenSearch, optional Redis, the Java service, and the Node gateway.
 
 `ops/docker/compose.yml` (essentials):
 
@@ -78,23 +78,10 @@ services:
       - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
     ports: [ "9200:9200" ]
 
-  prometheus:
-    image: prom/prometheus
-    ports: [ "9090:9090" ]
-    volumes: [ "./prometheus.yml:/etc/prometheus/prometheus.yml" ]
-
-  grafana:
-    image: grafana/grafana
-    ports: [ "3001:3000" ]
-
-  otelcol:
-    image: otel/opentelemetry-collector:latest
-    ports: [ "4317:4317", "4318:4318" ] # OTLP gRPC/HTTP
-
   service:
     build: ../../service
     env_file: ../../.env
-    depends_on: [ db, search, otelcol ]
+    depends_on: [ db, search ]
     ports: [ "8080:8080" ]
 
   gateway:
@@ -117,7 +104,7 @@ We’ll convert `series_data` to a hypertable in Phase 3 for time‑range perfor
 * Java: `http://localhost:8080/actuator/health` ✔
 * Node: `http://localhost:8081/health` ✔
 * OpenSearch: `http://localhost:9200` ✔
-* Prometheus/Grafana for metrics, OTLP collector for traces. (Spring Boot exposes Prometheus metrics via Actuator/Micrometer.) ([Home][3])
+* Monitoring stack is intentionally deferred; focus on core services first.
 
 ---
 
@@ -127,7 +114,7 @@ We’ll convert `series_data` to a hypertable in Phase 3 for time‑range perfor
 
 1. **Generate project** (Spring Initializr or manual):
 
-**Dependencies:** Web, Validation, Data JPA, JDBC, PostgreSQL, Actuator, Security (OAuth2 Resource Server), Micrometer Prometheus, Resilience4j, Flyway, springdoc‑openapi.
+**Dependencies:** Web, Validation, Data JPA, JDBC, PostgreSQL, Actuator, Security (OAuth2 Resource Server), Resilience4j, Flyway, springdoc‑openapi.
 
 > Java 21 is the current LTS; use the vendor JDK you prefer (Oracle, Temurin, Azul). ([Oracle][1])
 
@@ -150,7 +137,6 @@ dependencies {
   implementation("org.postgresql:postgresql")
 
   implementation("org.springframework.boot:spring-boot-starter-actuator")
-  implementation("io.micrometer:micrometer-registry-prometheus")
   implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
   implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
@@ -196,7 +182,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,prometheus,info
+        include: health,info
   endpoint:
     health:
       probes:
@@ -211,7 +197,7 @@ spring:
           jwk-set-uri: ${OAUTH_JWKS_URI:http://localhost:8082/.well-known/jwks.json}
 ```
 
-* **Micrometer/Prometheus**: `/actuator/prometheus` auto‑exposed when registry is on classpath. ([Micrometer Documentation][4])
+* **Diagnostics:** Rely on /actuator/health and /actuator/info for now while metrics collectors are deferred.
 * **Virtual threads** improve concurrency in I/O bound workloads in Boot 3.3 with `spring.threads.virtual.enabled`. ([Home][5])
 * **HikariCP** properties sized conservatively; tune later per DB CPU. (Hikari is default in Boot 3.) ([Baeldung on Kotlin][6])
 
@@ -649,16 +635,15 @@ app.listen(8081, () => console.log('Gateway listening on :8081'));
 
 ---
 
-# Phase 10 — Observability (metrics, logs, traces)
+# Phase 10 — Diagnostics (logging focus)
 
-**Outcome:** consistent metrics/logs/traces across gateway and service.
+**Outcome:** consistent structured logs and correlation IDs across gateway and service while deeper monitoring is deferred.
 
-* **Service (Java)**: Actuator + Prometheus registry → `/actuator/prometheus`; default HTTP & DB metrics via Micrometer. Export to Prometheus in local; alert in Grafana later. ([Home][3])
+* **Service (Java)**: Use Actuator for `/actuator/health` and `/actuator/info`; ensure application logs capture request IDs and key context.
 * **Gateway (Node)**: `pino-http` for structured logs; include correlation id (`X-Request-Id`). Pino is very fast. ([GitHub][18])
-* **Traces**: OpenTelemetry auto‑instrumentation for **Java** and **Node**; export to local OTLP collector. Use resource attributes `service.name` = `ts-service` / `ts-gateway`. ([OpenTelemetry][19])
+* **Request correlation**: Propagate the request ID header from gateway to service so log lines can be stitched together during debugging.
 
-**Done when:** you can see request traces spanning gateway → service → DB, metrics exposed, structured logs with IDs.
-
+**Done when:** structured logs in both services include shared request IDs and health endpoints respond as expected.
 ---
 
 # Phase 11 — Search sync job
@@ -729,7 +714,7 @@ app.listen(8081, () => console.log('Gateway listening on :8081'));
 * **Compute**: ECS/Fargate or EKS; one service per container (gateway & service).
 * **DB**: Amazon RDS for PostgreSQL; Timescale via self‑managed EC2 or Timescale Cloud.
 * **Edge**: CloudFront + WAF; **AWS Shield** (Std; Advanced if needed) for DDoS. ([AWS Documentation][16])
-* **Observability**: OTEL → ADOT collector → CloudWatch/Prometheus/Grafana.
+* **Diagnostics**: Capture logs in CloudWatch initially; add metrics/tracing later when monitoring tooling returns.
 * **Secrets**: AWS Secrets Manager; IAM roles for tasks (no long‑lived keys).
 
 **Done when:** infra is codified (Terraform) and images are built/pushed.
@@ -802,14 +787,6 @@ Register Spring’s `ShallowEtagHeaderFilter` bean or compute domain ETags as sh
 
 Have the gateway add `RateLimit-Remaining` or `X-RateLimit-*` and mirror 429 with `Retry-After`. (Aligns with your “Throughput Management” & “Tips for handling exceptional behavior”.)
 
-### 5) OpenTelemetry bootstrap
-
-**Java** (agent, no code changes): run service with
-`-javaagent:/opt/opentelemetry-javaagent.jar -Dotel.exporter.otlp.endpoint=http://otelcol:4317 -Dotel.service.name=ts-service`
-OpenTelemetry Java agent auto‑instruments common libs. ([GitHub][24])
-
-**Node** (basic setup; TypeScript): initialize SDK and Express instrumentation per OpenTelemetry docs. ([OpenTelemetry][25])
-
 ---
 
 ## Rich, efficient search queries
@@ -838,7 +815,7 @@ OpenTelemetry Java agent auto‑instruments common libs. ([GitHub][24])
 * **Latency & Throughput:** Hypertable scans, tight JDBC loops, small DTOs, ETags, gzip, micro‑caching. ([MDN Web Docs][2])
 * **Scalability:** stateless services (scale‑out); DB read replicas; search offloads text queries.
 * **Reliability/Resilience:** timeouts, retries, circuit breakers (Resilience4j), bulkheads (separate pools), health probes. ([OpenSearch Documentation][27])
-* **Observability:** Micrometer/Prometheus, structured logs, OpenTelemetry tracing end‑to‑end. ([Home][3])
+* **Diagnostics:** Structured logs and simple health endpoints cover the basics while metrics and tracing are deferred.
 * **Cacheability:** conditional GETs with ETag for metadata/data; client and CDN leverage. ([Wikipedia][23])
 * **DX/Usability:** RESTful nouns, versioned paths, consistent errors, OpenAPI + Swagger UI. ([Resilience4j][11])
 * **Testability:** Testcontainers for DB‑true integration tests. ([Testcontainers][22])
@@ -871,7 +848,7 @@ OpenTelemetry Java agent auto‑instruments common libs. ([GitHub][24])
 * **Design principles**: **nouns**, **plural collections**, **versioning**, **error contracts**, **pagination**, **conditional GET** with ETag — as in “Web API Design: Crafting Interfaces that Developers Love.” ([Resilience4j][11])
 * **Performance posture**: DB keys, hypertable, table‑driven kernels, small DTOs, edge caching—matching your “data‑oriented first” guidance.
 * **Security**: expanded checklist (HTTPS‑only, rate limit, TLS, authn/z, secrets, OWASP Top 10/API Security). ([OWASP Cheat Sheet Series][14])
-* **Observability & Ops**: Actuator/Micrometer/Prometheus; OpenTelemetry; structured logs; SLOs; runbooks.
+* **Diagnostics & Ops**: Actuator health/info endpoints, structured logs, SLOs, and runbooks; monitoring stack can be layered back in later.
 
 ---
 
@@ -887,9 +864,8 @@ Start small for connection pool size and grow with evidence; follow Hikari’s g
 2. `GET /v1/series/search?q=gdp&country=BR&freq=Q` → from OpenSearch.
 3. `GET /v1/series/BR.GDP.REAL.Q.SA/data?transform=yoy&fill=ffill` → transformed values.
 4. Show **ETag** round‑trip with `If-None-Match` → `304`. ([Wikipedia][23])
-5. Turn on Prometheus & Grafana dashboard. ([Micrometer Documentation][4])
-6. Show **trace** from gateway → service → DB in the OTEL UI. ([OpenTelemetry][19])
-7. Trigger a bulk export → watch job complete → download via **presigned URL**. ([AWS Documentation][20])
+5. Tail structured logs in gateway/service to show shared `X-Request-Id` for a request.
+6. Trigger a bulk export → watch job complete → download via **presigned URL**. ([AWS Documentation][20])
 
 ---
 
@@ -898,7 +874,6 @@ If you’d like, I can expand any phase into copy‑paste **full files** (e.g., 
 [1]: https://www.oracle.com/java/technologies/java-se-support-roadmap.html?utm_source=chatgpt.com "Java SE Support Roadmap"
 [2]: https://developer.mozilla.org/en-US/blog/securing-apis-express-rate-limit-and-slow-down/?utm_source=chatgpt.com "Securing APIs: Express rate limit and slow down - MDN"
 [3]: https://docs.spring.io/spring-boot/reference/actuator/metrics.html?utm_source=chatgpt.com "Metrics :: Spring Boot"
-[4]: https://docs.micrometer.io/micrometer/reference/implementations/prometheus.html?utm_source=chatgpt.com "Micrometer Prometheus"
 [5]: https://docs.spring.io/spring-boot/reference/features/task-execution-and-scheduling.html?utm_source=chatgpt.com "Task Execution and Scheduling :: Spring Boot"
 [6]: https://www.baeldung.com/spring-boot-hikari?utm_source=chatgpt.com "Configuring a Hikari Connection Pool with Spring Boot"
 [7]: https://nodejs.org/en/blog/announcements/v22-release-announce?utm_source=chatgpt.com "Node.js v22"
@@ -913,12 +888,10 @@ If you’d like, I can expand any phase into copy‑paste **full files** (e.g., 
 [16]: https://docs.aws.amazon.com/waf/latest/developerguide/ddos-overview.html?utm_source=chatgpt.com "How AWS Shield and Shield Advanced work"
 [17]: https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html?utm_source=chatgpt.com "Authentication - OWASP Cheat Sheet Series"
 [18]: https://github.com/pinojs/pino-http?utm_source=chatgpt.com "pinojs/pino-http: 🌲 high-speed HTTP logger for Node.js"
-[19]: https://opentelemetry.io/docs/languages/java/getting-started/?utm_source=chatgpt.com "Getting Started by Example"
 [20]: https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html?utm_source=chatgpt.com "Download and upload objects with presigned URLs"
 [21]: https://docs.spring.io/spring-framework/reference/integration/scheduling.html?utm_source=chatgpt.com "Task Execution and Scheduling :: Spring Framework"
 [22]: https://testcontainers.com/guides/getting-started-with-testcontainers-for-java/?utm_source=chatgpt.com "Getting started with Testcontainers for Java"
 [23]: https://en.wikipedia.org/wiki/HTTP_ETag?utm_source=chatgpt.com "HTTP ETag"
-[24]: https://github.com/open-telemetry/opentelemetry-java-instrumentation?utm_source=chatgpt.com "open-telemetry/opentelemetry-java-instrumentation"
-[25]: https://opentelemetry.io/docs/languages/js/getting-started/nodejs/?utm_source=chatgpt.com "Node.js"
 [26]: https://apisecurity.io/encyclopedia/content/owasp-api-security-top-10-cheat-sheet-a4.pdf?utm_source=chatgpt.com "OWASP API Security Top 10"
 [27]: https://docs.opensearch.org/latest/query-dsl/full-text/multi-match/?utm_source=chatgpt.com "Multi-match queries"
+

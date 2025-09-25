@@ -44,7 +44,7 @@ The repository follows Conventional Commits and keeps security controls (authn/z
 
 ## Local dev stack
 
-The Phase 1 Docker Compose stack mirrors the Architecture Guide’s split gateway/service topology and seeds observability plumbing (Prometheus, Grafana, OpenTelemetry).
+The Phase 1 Docker Compose stack mirrors the Architecture Guide’s split gateway/service topology and focuses on the core gateway/service components.
 
 ```bash
 cd ops/docker
@@ -61,9 +61,6 @@ Key endpoints once the stack is healthy:
 - Gateway health: http://localhost:8081/health → `{ "ok": true }`
 - Service actuator health: http://localhost:8080/actuator/health → `{"status":"UP"}`
 - OpenSearch banner: http://localhost:9200
-- Prometheus: http://localhost:9090 (scrapes the service at `/actuator/prometheus`)
-- Grafana: http://localhost:3001 (default admin/admin, update on first login)
-- OTEL collector health: http://localhost:13133/healthz
 - (Profile) Redis: http://localhost:6379
 - (Profile) Jaeger UI: http://localhost:16686
 
@@ -83,7 +80,6 @@ Key endpoints while the application is running:
 - http://localhost:8080/ (service banner)
 - http://localhost:8080/v1/ping
 - http://localhost:8080/actuator/health
-- http://localhost:8080/actuator/prometheus
 - http://localhost:8080/v3/api-docs
 - http://localhost:8080/swagger-ui.html
 

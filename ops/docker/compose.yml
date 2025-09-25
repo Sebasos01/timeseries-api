@@ -3,7 +3,6 @@ networks: { devnet: { driver: bridge } }
 volumes:
   dbdata: {}
   opensearch-data: {}
-  grafana-data: {}
 
 services:
   db:
@@ -50,49 +49,6 @@ services:
     restart: unless-stopped
     networks: [ devnet ]
 
-  prometheus:
-    image: prom/prometheus
-    container_name: ts-prom
-    env_file: ../../.env
-    ports: [ "9090:9090" ]
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    restart: unless-stopped
-    networks: [ devnet ]
-
-  grafana:
-    image: grafana/grafana
-    container_name: ts-grafana
-    env_file: ../../.env
-    ports: [ "3001:3000" ]
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-    environment:
-      - GF_SERVER_ROOT_URL=http://localhost:3001
-      - GF_USERS_ALLOW_SIGN_UP=false
-    restart: unless-stopped
-    networks: [ devnet ]
-
-  otelcol:
-    image: otel/opentelemetry-collector:latest
-    container_name: ts-otelcol
-    env_file: ../../.env
-    command: [ "--config=/etc/otelcol/config.yaml" ]
-    volumes:
-      - ./otel-config.yaml:/etc/otelcol/config.yaml:ro
-    ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "13133:13133"
-    healthcheck:
-      test: ["CMD", "bash", "-c", "wget -qO- http://127.0.0.1:13133/healthz >/dev/null 2>&1"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-    restart: unless-stopped
-    networks: [ devnet ]
-
   # Optional Redis (enable with --profile redis)
   redis:
     image: redis:7.2
@@ -129,11 +85,9 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://ts-db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-timeseries}
       - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
       - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otelcol:4317
     depends_on:
       db:       { condition: service_healthy }
       search:   { condition: service_started }
-      otelcol:  { condition: service_started }
     ports: [ "8080:8080" ]
     healthcheck:
       test: ["CMD", "bash", "-c", "wget -qO- http://127.0.0.1:8080/actuator/health | grep '\"status\":\"UP\"' >/dev/null"]

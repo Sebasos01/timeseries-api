@@ -1,9 +1,0 @@
-# Scrapes the Spring Boot actuator endpoint for metrics exposure.
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'spring-service'
-    metrics_path: /actuator/prometheus
-    static_configs:
-      - targets: [ 'service:8080' ]
