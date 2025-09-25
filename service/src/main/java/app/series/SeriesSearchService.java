@@ -1,4 +1,4 @@
-package app.series;
+﻿package app.series;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,19 +31,19 @@ public class SeriesSearchService {
 
   public SeriesSearchService(RestTemplate restTemplate,
       ObjectMapper mapper,
-      @Value("") String baseUrl) {
+      @Value("${opensearch.url:http://localhost:9200}") String baseUrl) {
     this.restTemplate = restTemplate;
     this.mapper = mapper;
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     ensureIndex();
   }
 
-  public List<SeriesSearchResult> search(String q, String country, String freq, int page,
+  public List<SeriesSearchResult> search(String q, String country, Frequency freq, int page,
       int pageSize) {
     if (!StringUtils.hasText(q)) {
       throw new IllegalArgumentException("q must be provided");
     }
-    if (!StringUtils.hasText(country) || !StringUtils.hasText(freq)) {
+    if (!StringUtils.hasText(country) || freq == null) {
       throw new IllegalArgumentException("country and freq must be provided");
     }
     if (page < 1 || pageSize < 1) {
@@ -70,7 +70,7 @@ public class SeriesSearchService {
     }
   }
 
-  private Map<String, Object> buildRequestBody(String q, String country, String freq, int from,
+  private Map<String, Object> buildRequestBody(String q, String country, Frequency freq, int from,
       int size) {
     Map<String, Object> multiMatch = Map.of(
         "multi_match",
@@ -81,7 +81,7 @@ public class SeriesSearchService {
 
     List<Map<String, Object>> filters = new ArrayList<>();
     filters.add(Map.of("term", Map.of("geography", country)));
-    filters.add(Map.of("term", Map.of("frequency", freq)));
+    filters.add(Map.of("term", Map.of("frequency", freq.name())));
 
     Map<String, Object> boolQuery = new HashMap<>();
     boolQuery.put("must", List.of(multiMatch));

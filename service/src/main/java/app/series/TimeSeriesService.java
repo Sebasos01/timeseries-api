@@ -1,44 +1,44 @@
-package app.series;
+﻿package app.series;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.util.StringUtils;
 
 @Service
 public class TimeSeriesService {
 
   public SeriesDto getSeries(String id) {
-    if (id == null || id.isBlank()) {
+    if (!StringUtils.hasText(id)) {
       throw new IllegalArgumentException("id must be provided");
     }
     return new SeriesDto(id, "Series " + id);
   }
 
   public List<DataPoint> getData(String id, LocalDate start, LocalDate end, LocalDate asOf,
-      String freq, String transform, String fill) {
-    if (id == null || id.isBlank()) {
+      Frequency frequency, Transform transform, FillPolicy fillPolicy) {
+    if (!StringUtils.hasText(id)) {
       throw new IllegalArgumentException("id must be provided");
     }
     List<DataPoint> data = new ArrayList<>();
-    data.add(new DataPoint(Instant.now().atZone(java.time.ZoneOffset.UTC).toLocalDate(), 100d));
+    data.add(new DataPoint(LocalDate.now(), 100d));
     return data;
   }
 
   public String computeEtag(String id, LocalDate start, LocalDate end, LocalDate asOf,
-      String freq, String transform, String fill) {
+      Frequency frequency, Transform transform, FillPolicy fillPolicy) {
     String payload = String.join("|",
-        id,
-        String.valueOf(start),
-        String.valueOf(end),
-        String.valueOf(asOf),
-        freq,
-        transform,
-        fill);
-    String hash = DigestUtils.md5DigestAsHex(payload.getBytes(StandardCharsets.UTF_8));
-    return '"' + hash + '"';
+        Objects.toString(id, ""),
+        Objects.toString(start, ""),
+        Objects.toString(end, ""),
+        Objects.toString(asOf, ""),
+        frequency.name(),
+        transform.name(),
+        fillPolicy.name());
+    return "\"" + DigestUtils.md5DigestAsHex(payload.getBytes(StandardCharsets.UTF_8)) + "\"";
   }
 }

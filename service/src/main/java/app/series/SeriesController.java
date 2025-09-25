@@ -1,8 +1,11 @@
-package app.series;
+﻿package app.series;
 
+import jakarta.validation.constraints.Pattern;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.function.Function;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -25,6 +28,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 @Validated
 public class SeriesController {
   private static final MediaType CSV_MEDIA_TYPE = MediaType.valueOf("text/csv");
+  private static final String SERIES_ID_REGEX = "^[A-Za-z0-9_.-]{1,64}$";
+
   private final TimeSeriesService svc;
   private final SeriesSearchService searchService;
 
@@ -34,12 +39,12 @@ public class SeriesController {
   }
 
   @GetMapping("/{id}")
-  public SeriesDto get(@PathVariable String id) {
+  public SeriesDto get(@PathVariable @Pattern(regexp = SERIES_ID_REGEX) String id) {
     return svc.getSeries(id);
   }
 
   @GetMapping("/{id}/data")
-  public ResponseEntity<?> data(@PathVariable String id,
+  public ResponseEntity<?> data(@PathVariable @Pattern(regexp = SERIES_ID_REGEX) String id,
       @RequestParam(required = false) LocalDate start,
       @RequestParam(required = false) LocalDate end,
       @RequestParam(required = false, name = "as_of") LocalDate asOf,
@@ -48,8 +53,12 @@ public class SeriesController {
       @RequestParam(defaultValue = "none") String fill,
       @RequestHeader(value = HttpHeaders.ACCEPT, required = false) String accept) {
 
-    var resp = svc.getData(id, start, end, asOf, freq, transform, fill);
-    String etag = svc.computeEtag(id, start, end, asOf, freq, transform, fill);
+    Frequency frequency = parseEnum(freq, Frequency::valueOf, "freq");
+    Transform transformType = parseEnum(transform, Transform::valueOf, "transform");
+    FillPolicy fillPolicy = parseEnum(fill, FillPolicy::valueOf, "fill");
+
+    var resp = svc.getData(id, start, end, asOf, frequency, transformType, fillPolicy);
+    String etag = svc.computeEtag(id, start, end, asOf, frequency, transformType, fillPolicy);
 
     String ifNoneMatch = currentRequestHeader(HttpHeaders.IF_NONE_MATCH);
     if (etag != null && etag.equals(ifNoneMatch)) {
@@ -72,13 +81,22 @@ public class SeriesController {
       @RequestParam(name = "freq") String freq,
       @RequestParam(defaultValue = "1") int page,
       @RequestParam(name = "page_size", defaultValue = "50") int pageSize) {
-    var results = searchService.search(q, country, freq, page, pageSize);
+    Frequency frequency = parseEnum(freq, Frequency::valueOf, "freq");
+    var results = searchService.search(q, country, frequency, page, pageSize);
     return ResponseEntity.ok(results);
   }
 
   @PostMapping("/batch")
   public ResponseEntity<List<?>> batch() {
     return ResponseEntity.ok(Collections.emptyList());
+  }
+
+  private static <E extends Enum<E>> E parseEnum(String value, Function<String, E> resolver, String field) {
+    try {
+      return resolver.apply(value.toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException ex) {
+      throw new IllegalArgumentException("Invalid " + field + " parameter");
+    }
   }
 
   private static MediaType selectMediaType(String accept) {

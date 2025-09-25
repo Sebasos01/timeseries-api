@@ -11,7 +11,13 @@ const JAVA_API = process.env.JAVA_API_URL || 'http://localhost:8080';
 const limiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: false });
 
 app.disable('x-powered-by');
-app.use(helmet());
+app.use(helmet({
+  hsts: {
+    maxAge: 63072000,
+    includeSubDomains: true,
+    preload: true,
+  },
+}));
 app.use(cors({ origin: false }));          // locked-down; tune per UI host
 app.use(compression());
 app.use(express.json({ limit: '256kb' }));
