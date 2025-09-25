@@ -3,6 +3,7 @@ package app;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,6 +27,7 @@ class ApiApplicationSmokeTest {
       .parse("timescale/timescaledb:2.17.2-pg16")
       .asCompatibleSubstituteFor("postgres");
 
+  @SuppressWarnings("resource")
   @Container
   static final PostgreSQLContainer<?> POSTGRES =
       new PostgreSQLContainer<>(TIMESCALE_IMAGE)
@@ -41,6 +43,13 @@ class ApiApplicationSmokeTest {
 
   @Autowired
   private TestRestTemplate restTemplate;
+
+
+  @AfterAll
+  static void stopContainer() {
+    POSTGRES.stop();
+  }
+
 
   @Test
   void pingRespondsWithPong() {

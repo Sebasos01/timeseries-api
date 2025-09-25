@@ -3,6 +3,7 @@ package app.it;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -22,6 +23,7 @@ class PostgresContainerIT {
       .parse("timescale/timescaledb:2.17.2-pg16")
       .asCompatibleSubstituteFor("postgres");
 
+  @SuppressWarnings("resource")
   @Container
   static final PostgreSQLContainer<?> POSTGRES =
       new PostgreSQLContainer<>(TIMESCALE_IMAGE)
@@ -34,6 +36,13 @@ class PostgresContainerIT {
     registry.add("spring.datasource.username", POSTGRES::getUsername);
     registry.add("spring.datasource.password", POSTGRES::getPassword);
   }
+
+
+  @AfterAll
+  static void stopContainer() {
+    POSTGRES.stop();
+  }
+
 
   @Autowired
   private JdbcTemplate jdbcTemplate;

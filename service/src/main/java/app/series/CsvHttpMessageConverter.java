@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.converter.AbstractHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
+import org.springframework.lang.NonNull;
 
 public class CsvHttpMessageConverter extends AbstractHttpMessageConverter<Object> {
   private static final MediaType TEXT_CSV = MediaType.valueOf("text/csv");
@@ -22,18 +23,19 @@ public class CsvHttpMessageConverter extends AbstractHttpMessageConverter<Object
   }
 
   @Override
-  protected boolean supports(Class<?> clazz) {
+  protected boolean supports(@NonNull Class<?> clazz) {
     return Collection.class.isAssignableFrom(clazz) || clazz.isArray();
   }
 
   @Override
-  protected Object readInternal(Class<?> clazz, HttpInputMessage inputMessage)
+  @NonNull
+  protected Object readInternal(@NonNull Class<?> clazz, @NonNull HttpInputMessage inputMessage)
       throws IOException, HttpMessageNotReadableException {
     throw new HttpMessageNotReadableException("CSV reading not supported", inputMessage);
   }
 
   @Override
-  protected void writeInternal(Object object, HttpOutputMessage outputMessage)
+  protected void writeInternal(@NonNull Object object, @NonNull HttpOutputMessage outputMessage)
       throws IOException, HttpMessageNotWritableException {
     CsvSchema schema = determineSchema(object);
     var writer = mapper.writer(schema).writeValues(outputMessage.getBody());

@@ -1,5 +1,6 @@
 package app.series;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -12,7 +13,8 @@ public class Series {
 
   @Id
   private String seriesId;
-  private String name;\n  private String description;
+  private String name;
+  private String description;
   private char frequency;      // 'A','Q','M','W','D'
   private String unit;
   private String geography;
@@ -20,6 +22,8 @@ public class Series {
   private boolean isAdjusted;
   private LocalDate startDate;
   private LocalDate endDate;
+
+  @Column(name = "last_update")
   private Instant lastUpdate;
 
   public Series() {
@@ -32,6 +36,14 @@ public class Series {
 
   public String getName() {
     return name;
+  }
+
+  public String getDescription() {
+    return description;
+  }
+
+  public void setDescription(String description) {
+    this.description = description;
   }
 
   public char getFrequency() {

@@ -2,6 +2,7 @@ package app.series;
 
 import jakarta.validation.constraints.Pattern;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -21,6 +23,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -159,7 +162,7 @@ public class SeriesController {
     var requested = fieldsMapper(fields);
     return ResponseEntity.ok(results.stream()
         .map(result -> {
-          Map<String, Object> map = mapper.convertValue(result, Map.class);
+          Map<String, Object> map = mapper.convertValue(result, new TypeReference<Map<String, Object>>() {});
           return filterFields(map, requested);
         })
         .collect(Collectors.toList()));
@@ -200,7 +203,8 @@ public class SeriesController {
       return MediaType.APPLICATION_JSON;
     }
     List<MediaType> mediaTypes = MediaType.parseMediaTypes(accept);
-    mediaTypes.sort(MediaType.SPECIFICITY_COMPARATOR.thenComparing(MediaType.QUALITY_VALUE_COMPARATOR));
+    mediaTypes.sort(Comparator.comparingDouble(MediaType::getQualityValue).reversed());
+    MimeTypeUtils.sortBySpecificity(mediaTypes);
     for (MediaType mediaType : mediaTypes) {
       if (mediaType.isCompatibleWith(CSV_MEDIA_TYPE)) {
         return CSV_MEDIA_TYPE;
