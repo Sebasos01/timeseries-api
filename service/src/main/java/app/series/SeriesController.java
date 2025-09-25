@@ -26,9 +26,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class SeriesController {
   private static final MediaType CSV_MEDIA_TYPE = MediaType.valueOf("text/csv");
   private final TimeSeriesService svc;
+  private final SeriesSearchService searchService;
 
-  public SeriesController(TimeSeriesService svc) {
+  public SeriesController(TimeSeriesService svc, SeriesSearchService searchService) {
     this.svc = svc;
+    this.searchService = searchService;
   }
 
   @GetMapping("/{id}")
@@ -64,8 +66,14 @@ public class SeriesController {
   }
 
   @GetMapping("/search")
-  public ResponseEntity<List<?>> search() {
-    return ResponseEntity.ok(Collections.emptyList());
+  public ResponseEntity<List<SeriesSearchResult>> search(
+      @RequestParam String q,
+      @RequestParam(name = "country") String country,
+      @RequestParam(name = "freq") String freq,
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(name = "page_size", defaultValue = "50") int pageSize) {
+    var results = searchService.search(q, country, freq, page, pageSize);
+    return ResponseEntity.ok(results);
   }
 
   @PostMapping("/batch")
