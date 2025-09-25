@@ -1,0 +1,298 @@
+{
+  "info": {
+    "name": "Time Series API",
+    "description": "Collection covering the public endpoints exposed by the Time Series service. Update the `baseUrl` variable to point at either the Spring service (default http://localhost:8080) or the edge gateway (http://localhost:8081).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Service Banner",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Contains service identifier\", function () {",
+              "  var data = pm.response.json();",
+              "  pm.expect(data.service).to.eql('ts-service');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ping",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/ping"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response contains pong flag\", function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('pong', true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Series Metadata",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/series/{{seriesId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Series id matches request\", function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body.id).to.eql(pm.variables.get('seriesId'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Series Data (JSON)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/series/{{seriesId}}/data?start={{startDate}}&end={{endDate}}&as_of={{asOfDate}}&freq={{frequency}}&transform={{transform}}&fill={{fillPolicy}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200 or 304\", function () {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 304]);",
+              "});",
+              "pm.test(\"Response is array when body returned\", function () {",
+              "  if (pm.response.code === 200 && pm.response.headers.get('Content-Length') !== '0') {",
+              "    var json = pm.response.json();",
+              "    pm.expect(Array.isArray(json)).to.eql(true);",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Series Data (CSV)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "text/csv"
+          }
+        ],
+        "url": "{{baseUrl}}/v1/series/{{seriesId}}/data?freq={{frequency}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Content type is CSV\", function () {",
+              "  pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search Series",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/v1/series/search?q={{searchQuery}}&country={{searchCountry}}&freq={{searchFrequency}}&page={{page}}&page_size={{pageSize}}&fields={{searchFields}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is success\", function () {",
+              "  pm.expect([200, 202]).to.include(pm.response.code);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Trigger Series Reindex (v1 batch)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": "{{baseUrl}}/v1/series/batch"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 202 Accepted\", function () {",
+              "  pm.response.to.have.status(202);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Export",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": "{{baseUrl}}/v1/exports"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin Reindex",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": ""
+        },
+        "url": "{{baseUrl}}/admin/reindex"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 202 Accepted\", function () {",
+              "  pm.response.to.have.status(202);",
+              "});",
+              "pm.test(\"Response body confirms start\", function () {",
+              "  var json = pm.response.json();",
+              "  pm.expect(json.status).to.eql('reindex started');",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "seriesId",
+      "value": "US.GDP.REAL.Q"
+    },
+    {
+      "key": "startDate",
+      "value": "2020-01-01"
+    },
+    {
+      "key": "endDate",
+      "value": "2024-12-31"
+    },
+    {
+      "key": "asOfDate",
+      "value": ""
+    },
+    {
+      "key": "frequency",
+      "value": "native"
+    },
+    {
+      "key": "transform",
+      "value": "as_is"
+    },
+    {
+      "key": "fillPolicy",
+      "value": "none"
+    },
+    {
+      "key": "searchQuery",
+      "value": "gdp"
+    },
+    {
+      "key": "searchCountry",
+      "value": "US"
+    },
+    {
+      "key": "searchFrequency",
+      "value": "Q"
+    },
+    {
+      "key": "page",
+      "value": "1"
+    },
+    {
+      "key": "pageSize",
+      "value": "50"
+    },
+    {
+      "key": "searchFields",
+      "value": "seriesId,name"
+    }
+  ]
+}
