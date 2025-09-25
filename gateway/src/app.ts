@@ -7,9 +7,20 @@ import pinoHttp from 'pino-http';
 import axios from 'axios';
 import docsRoute from './routes/docs.js';
 
+const WINDOW_MS = 60_000;
 const app = express();
 const JAVA_API = process.env.JAVA_API_URL || 'http://localhost:8080';
-const limiter = rateLimit({ windowMs: 60_000, max: 120, standardHeaders: true, legacyHeaders: true });
+const limiter = rateLimit({
+  windowMs: WINDOW_MS,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: true,
+  handler: (req, res) => {
+    const windowSeconds = Math.ceil(WINDOW_MS / 1000);
+    res.setHeader('Retry-After', windowSeconds.toString());
+    res.status(429).json({ error: 'Too Many Requests' });
+  }
+});
 
 app.disable('x-powered-by');
 app.use(helmet({
@@ -26,9 +37,14 @@ app.use(limiter);
 app.use((req, res, next) => {
   const rl = (req as any).rateLimit;
   if (rl) {
-    const windowSeconds = Math.ceil(limiter.windowMs / 1000);
+    const windowSeconds = Math.ceil(WINDOW_MS / 1000);
+    const remaining = Math.max(rl.remaining ?? 0, 0);
+    const resetEpoch = rl.resetTime ? Math.ceil(rl.resetTime.getTime() / 1000) : Math.ceil((Date.now() + WINDOW_MS) / 1000);
     res.setHeader('RateLimit', `${rl.limit};w=${windowSeconds}`);
     res.setHeader('RateLimit-Policy', `${rl.limit};w=${windowSeconds}`);
+    res.setHeader('X-RateLimit-Limit', rl.limit.toString());
+    res.setHeader('X-RateLimit-Remaining', remaining.toString());
+    res.setHeader('X-RateLimit-Reset', resetEpoch.toString());
   }
   next();
 });
