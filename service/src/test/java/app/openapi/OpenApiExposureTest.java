@@ -1,4 +1,4 @@
-﻿package app.openapi;
+package app.openapi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
