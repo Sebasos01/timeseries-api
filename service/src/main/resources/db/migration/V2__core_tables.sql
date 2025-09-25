@@ -30,9 +30,13 @@ CREATE TABLE series_data_history (
 );
 
 -- Convert to hypertable for range scans:
-SELECT create_hypertable('series_data', 'ts_date', if_not_exists => TRUE);
--- Optionally space-partition by series_id for very large datasets:
--- SELECT create_hypertable('series_data', 'ts_date',
---   chunk_time_interval => INTERVAL '1 year',
---   partitioning_column => 'series_id', number_partitions => 8,
---   if_not_exists => TRUE);
+SELECT create_hypertable(
+  'series_data',
+  'ts_date',
+  chunk_time_interval => INTERVAL '1 year',
+  partitioning_column => 'series_id',
+  number_partitions => 8,
+  if_not_exists => TRUE
+);
+
+

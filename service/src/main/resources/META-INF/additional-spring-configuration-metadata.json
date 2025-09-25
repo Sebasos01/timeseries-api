@@ -1,0 +1,36 @@
+﻿{
+  "groups": [
+    {
+      "name": "security",
+      "type": "java.lang.Object",
+      "description": "Security configuration namespace for toggling authentication features."
+    },
+    {
+      "name": "security.auth",
+      "type": "java.lang.Object",
+      "description": "Authentication-specific switches."
+    },
+    {
+      "name": "search",
+      "type": "java.lang.Object",
+      "description": "Search configuration namespace for external services."
+    },
+    {
+      "name": "search.opensearch",
+      "type": "java.lang.Object",
+      "description": "OpenSearch connectivity settings."
+    }
+  ],
+  "properties": [
+    {
+      "name": "security.auth.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable API authentication for requests proxied to the service."
+    },
+    {
+      "name": "search.opensearch.url",
+      "type": "java.lang.String",
+      "description": "Base URL of the OpenSearch cluster used for series search."
+    }
+  ]
+}
