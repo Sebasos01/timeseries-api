@@ -27,7 +27,7 @@ dependencies {
   implementation("org.springframework.boot:spring-boot-starter-actuator")
   implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
-  implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.12")
+  implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.13")
   implementation("io.github.resilience4j:resilience4j-spring-boot3:2.3.0")
   implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-csv")
 
@@ -35,6 +35,7 @@ dependencies {
   runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
   testImplementation("org.springframework.boot:spring-boot-starter-test")
+  testImplementation("io.swagger.parser.v3:swagger-parser:2.1.19")
 
   testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.3"))
   testImplementation("org.testcontainers:junit-jupiter")

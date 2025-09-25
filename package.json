@@ -1,0 +1,12 @@
+﻿{
+  "type": "module",
+  "scripts": {
+    "spec:pull": "curl -s http://localhost:8080/v3/api-docs.yaml -o docs/openapi.yaml",
+    "sdk:ts": "openapi-generator-cli generate -i docs/openapi.yaml -g typescript-axios -o sdks/typescript --additional-properties=useSingleRequestParameter=true,withInterfaces=true",
+    "sdk:py": "openapi-generator-cli generate -i docs/openapi.yaml -g python -o sdks/python",
+    "sdk:all": "npm run spec:pull && npm run sdk:ts && npm run sdk:py"
+  },
+  "devDependencies": {
+    "@openapitools/openapi-generator-cli": "^2.13.2"
+  }
+}

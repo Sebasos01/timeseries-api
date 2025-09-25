@@ -96,3 +96,5 @@ Set `AUTH_ENABLED=true` and point `OAUTH_JWKS_URI` at a JWKS endpoint to require
 - Review OWASP cheat sheets for [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Input Validation](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html), [REST Security](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html), and [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) before production hardening.
 - **Reindex**: POST http://localhost:8081/admin/reindex (gateway) triggers the async bulk reindex so newly added series appear in search.
 
+
+- **Docs**: Gateway hosts docs at http://localhost:8081/docs (UI) and exposes the YAML at /docs/openapi.yaml. Use npm run sdk:all to regenerate SDKs.

@@ -1,0 +1,21 @@
+﻿{
+  "generator-cli": {
+    "version": "7.7.0",
+    "generators": {
+      "typescript": {
+        "generatorName": "typescript-axios",
+        "output": "sdks/typescript",
+        "inputSpec": "docs/openapi.yaml",
+        "additionalProperties": {
+          "useSingleRequestParameter": true,
+          "withInterfaces": true
+        }
+      },
+      "python": {
+        "generatorName": "python",
+        "output": "sdks/python",
+        "inputSpec": "docs/openapi.yaml"
+      }
+    }
+  }
+}
