@@ -21,6 +21,22 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     long startTime = System.currentTimeMillis();
     try {
       filterChain.doFilter(request, response);
+    } catch (ServletException | IOException ex) {
+      log.error("Request {} {} from {} failed: {}",
+          request.getMethod(),
+          getRequestUriWithQuery(request),
+          getClientIp(request),
+          ex.getMessage(),
+          ex);
+      throw ex;
+    } catch (RuntimeException ex) {
+      log.error("Request {} {} from {} failed: {}",
+          request.getMethod(),
+          getRequestUriWithQuery(request),
+          getClientIp(request),
+          ex.getMessage(),
+          ex);
+      throw ex;
     } finally {
       long duration = System.currentTimeMillis() - startTime;
       log.info("HTTP {} {} from {} -> {} ({} ms)",

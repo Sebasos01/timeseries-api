@@ -5,6 +5,8 @@ import jakarta.validation.ConstraintViolationException;
 import java.net.URI;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+  private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
   private static final Map<HttpStatus, String> TYPE_SLUGS = Map.of(
       HttpStatus.BAD_REQUEST, "invalid-parameter",
@@ -75,6 +79,7 @@ public class ApiExceptionHandler {
 
   private ResponseEntity<ProblemDetail> buildProblem(HttpStatus status, Exception ex,
       HttpServletRequest request) {
+    logException(status, ex, request);
     ProblemDetail detail = ProblemDetail.forStatusAndDetail(status, ex.getMessage());
     detail.setTitle(status.getReasonPhrase());
     detail.setInstance(URI.create(request.getRequestURI()));
@@ -82,5 +87,55 @@ public class ApiExceptionHandler {
         TYPE_SLUGS.getOrDefault(status, "internal-error")));
     detail.setProperty("path", request.getRequestURI());
     return ResponseEntity.status(status).body(detail);
+  }
+
+  private void logException(HttpStatus status, Exception ex, HttpServletRequest request) {
+    String method = request.getMethod();
+    String uriWithQuery = getRequestUriWithQuery(request);
+    String clientIp = getClientIp(request);
+    String errorMessage = ex.getMessage();
+    if (errorMessage == null || errorMessage.isBlank()) {
+      errorMessage = ex.getClass().getName();
+    }
+
+    if (status.is5xxServerError()) {
+      log.error("Request {} {} from {} failed with status {}: {}",
+          method,
+          uriWithQuery,
+          clientIp,
+          status.value(),
+          errorMessage,
+          ex);
+    } else if (status.is4xxClientError()) {
+      log.warn("Request {} {} from {} returned status {}: {}",
+          method,
+          uriWithQuery,
+          clientIp,
+          status.value(),
+          errorMessage);
+    } else {
+      log.info("Request {} {} from {} resulted in status {}: {}",
+          method,
+          uriWithQuery,
+          clientIp,
+          status.value(),
+          errorMessage);
+    }
+  }
+
+  private String getRequestUriWithQuery(HttpServletRequest request) {
+    String queryString = request.getQueryString();
+    if (queryString == null || queryString.isBlank()) {
+      return request.getRequestURI();
+    }
+    return request.getRequestURI() + "?" + queryString;
+  }
+
+  private String getClientIp(HttpServletRequest request) {
+    String forwardedHeader = request.getHeader("X-Forwarded-For");
+    if (forwardedHeader != null && !forwardedHeader.isBlank()) {
+      return forwardedHeader.split(",")[0].trim();
+    }
+    return request.getRemoteAddr();
   }
 }

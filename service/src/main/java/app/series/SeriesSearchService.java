@@ -31,7 +31,7 @@ public class SeriesSearchService {
 
   public SeriesSearchService(RestTemplate restTemplate,
       ObjectMapper mapper,
-      @Value("${opensearch.url:http://localhost:9200}") String baseUrl) {
+      @Value("${search.opensearch.url:http://search:9200}") String baseUrl) {
     this.restTemplate = restTemplate;
     this.mapper = mapper;
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
@@ -189,3 +189,4 @@ public class SeriesSearchService {
     }
   }
 }
+

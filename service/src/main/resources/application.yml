@@ -53,3 +53,6 @@ logging:
   level:
     app.config.RequestLoggingFilter: INFO
 
+search:
+  opensearch:
+    url: ${OPENSEARCH_URL:http://search:9200}
