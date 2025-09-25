@@ -47,3 +47,9 @@ springdoc:
     enabled: true
     path: /v3/api-docs
 
+logging:
+  file:
+    name: logs/api-requests.log
+  level:
+    app.config.RequestLoggingFilter: INFO
+
