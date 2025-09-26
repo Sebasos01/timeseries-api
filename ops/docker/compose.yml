@@ -88,7 +88,6 @@ services:
     depends_on:
       db:       { condition: service_healthy }
       search:   { condition: service_started }
-    ports: [ "8080:8080" ]
     healthcheck:
       test: ["CMD", "bash", "-c", "wget -qO- http://127.0.0.1:8080/actuator/health | grep '\"status\":\"UP\"' >/dev/null"]
       interval: 10s

@@ -4,7 +4,7 @@
 
 - Gateway Swagger UI: http://localhost:8081/docs/ui
 - Raw OpenAPI YAML (via gateway): http://localhost:8081/docs/openapi.yaml
-- Service Swagger UI (direct): http://localhost:8080/swagger-ui.html
+- Service Swagger UI (direct, when the Spring app is running outside Docker): http://localhost:8080/swagger-ui.html
 
 ## Regenerating the spec & SDKs
 

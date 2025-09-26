@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -187,6 +188,7 @@ public class SeriesController {
         .collect(Collectors.toList()));
   }
 
+  @PreAuthorize("hasAuthority('SCOPE_' + @adminAuthorization.scope())")
   @PostMapping("/batch")
   public ResponseEntity<List<?>> batch() {
     syncService.reindexAllAsync();

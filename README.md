@@ -59,7 +59,7 @@ docker compose --profile jaeger up --build
 Key endpoints once the stack is healthy:
 
 - Gateway health: http://localhost:8081/health → `{ "ok": true }`
-- Service actuator health: http://localhost:8080/actuator/health → `{"status":"UP"}`
+- Service actuator health (internal-only): `docker compose exec ts-service curl -s http://localhost:8080/actuator/health`
 - OpenSearch banner: http://localhost:9200
 - (Profile) Redis: http://localhost:6379
 - (Profile) Jaeger UI: http://localhost:16686
@@ -75,7 +75,7 @@ cd service
 ./gradlew bootRun
 ```
 
-Key endpoints while the application is running:
+Key endpoints while the application is running outside of Docker (e.g., via `./gradlew bootRun`):
 
 - http://localhost:8080/ (service banner)
 - http://localhost:8080/v1/ping
@@ -83,18 +83,18 @@ Key endpoints while the application is running:
 - http://localhost:8080/v3/api-docs
 - http://localhost:8080/swagger-ui.html
 
-Set `AUTH_ENABLED=true` and point `OAUTH_JWKS_URI` at a JWKS endpoint to require JWTs; leave the toggle off for local hacking.
+Set `AUTH_ENABLED=true` and supply `OAUTH_JWKS_URI`, `OAUTH_AUDIENCE`, and `OAUTH_ISSUER` to require JWTs across the gateway and service. The `ADMIN_SCOPE` (default `admin:reindex`) governs which tokens may call bulk mutation endpoints.
 ## Security posture (Phase 9)
 
 - **HTTPS only**: deploy the gateway behind CloudFront or an ALB with TLS termination. Helmet already sends HSTS headers so browsers stay on HTTPS.
-- **Authentication & rate limiting**: the gateway enforces a per-client `x-api-key` (stored in `.env` locally, Secrets Manager/SSM in AWS) and throttles requests with `express-rate-limit`.
+- **Authentication & rate limiting**: when `AUTH_ENABLED=true`, the gateway validates OAuth2 access tokens (RS256) against the configured JWKS, issuer, and audience, forwards the bearer token to the service, and throttles requests with `express-rate-limit`.
 - **Least privilege DB access**: connect with the `ts_api_ro` role (SELECT only). Provision the user separately and avoid using superuser credentials in the app configuration.
 - **Secrets management**: never hard-code credentials; load them from environment variables locally and from AWS Secrets Manager/Parameter Store in deployed environments.
 - **Edge protections**: front the gateway with CloudFront + AWS WAF (with Shield Standard) to enforce HTTPS, HSTS, and absorb L3/L4 attacks.
 - **Validated inputs**: Spring controllers are annotated with `@Validated`, enforce a `seriesId` regex, and coerce query parameters into enums so invalid values fail fast with 400 responses.
 - **Logging & error handling**: JSON logs (pino-http) include request IDs; Problem Detail responses keep error payloads consistent.
 - Review OWASP cheat sheets for [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Input Validation](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html), [REST Security](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html), and [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) before production hardening.
-- **Reindex**: POST http://localhost:8081/admin/reindex (gateway) triggers the async bulk reindex so newly added series appear in search.
+- **Reindex**: POST http://localhost:8081/admin/reindex (gateway) triggers the async bulk reindex so newly added series appear in search. Only JWTs containing the `ADMIN_SCOPE` (default `admin:reindex`) may invoke `/admin/reindex` or `/v1/series/batch`.
 
 
 - **Docs**: Gateway hosts docs at http://localhost:8081/docs (UI) and exposes the YAML at /docs/openapi.yaml. Use npm run sdk:all to regenerate SDKs.

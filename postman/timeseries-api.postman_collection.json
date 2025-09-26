@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Time Series API",
-    "description": "Collection covering the public endpoints exposed by the Time Series service. Update the `baseUrl` variable to point at either the Spring service (default http://localhost:8080) or the edge gateway (http://localhost:8081).",
+    "description": "Collection covering the public endpoints exposed by the Time Series service. Update the `baseUrl` variable to point at either the Spring service (when running outside Docker) or the edge gateway (default http://localhost:8081).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -9,7 +9,12 @@
       "name": "Service Banner",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
+          }
+        ],
         "url": "{{baseUrl}}/"
       },
       "event": [
@@ -34,7 +39,12 @@
       "name": "Ping",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
+          }
+        ],
         "url": "{{baseUrl}}/v1/ping"
       },
       "event": [
@@ -59,7 +69,12 @@
       "name": "Get Series Metadata",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
+          }
+        ],
         "url": "{{baseUrl}}/v1/series/{{seriesId}}"
       },
       "event": [
@@ -84,7 +99,12 @@
       "name": "Get Series Data (JSON)",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
+          }
+        ],
         "url": "{{baseUrl}}/v1/series/{{seriesId}}/data?start={{startDate}}&end={{endDate}}&as_of={{asOfDate}}&freq={{frequency}}&transform={{transform}}&fill={{fillPolicy}}&page={{dataPage}}&page_size={{dataPageSize}}"
       },
       "event": [
@@ -115,6 +135,10 @@
           {
             "key": "Accept",
             "value": "text/csv"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
           }
         ],
         "url": "{{baseUrl}}/v1/series/{{seriesId}}/data?start={{startDate}}&end={{endDate}}&as_of={{asOfDate}}&freq={{frequency}}&transform={{transform}}&fill={{fillPolicy}}&page={{dataPage}}&page_size={{dataPageSize}}&format=csv"
@@ -140,7 +164,12 @@
       "name": "Search Series",
       "request": {
         "method": "GET",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
+          }
+        ],
         "url": "{{baseUrl}}/v1/series/search?q={{searchQuery}}&country={{searchCountry}}&freq={{searchFrequency}}&page={{page}}&page_size={{pageSize}}&fields={{searchFields}}"
       },
       "event": [
@@ -161,7 +190,12 @@
       "name": "Trigger Series Reindex (v1 batch)",
       "request": {
         "method": "POST",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": ""
@@ -186,7 +220,12 @@
       "name": "Create Export",
       "request": {
         "method": "POST",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": ""
@@ -211,7 +250,12 @@
       "name": "Admin Reindex",
       "request": {
         "method": "POST",
-        "header": [],
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwtToken}}"
+          }
+        ],
         "body": {
           "mode": "raw",
           "raw": ""
@@ -240,7 +284,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:8080"
+      "value": "http://localhost:8081"
     },
     {
       "key": "seriesId",
@@ -301,6 +345,10 @@
     {
       "key": "dataPageSize",
       "value": "250"
+    },
+    {
+      "key": "jwtToken",
+      "value": ""
     }
   ]
 }

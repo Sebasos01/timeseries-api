@@ -3,6 +3,7 @@ package app.admin;
 import app.series.SeriesSyncService;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,6 +17,7 @@ public class AdminController {
     this.syncService = syncService;
   }
 
+  @PreAuthorize("hasAuthority('SCOPE_' + @adminAuthorization.scope())")
   @PostMapping("/reindex")
   public ResponseEntity<Map<String, String>> reindex() {
     syncService.reindexAllAsync();

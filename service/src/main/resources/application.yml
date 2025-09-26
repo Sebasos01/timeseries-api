@@ -1,4 +1,4 @@
-﻿server:
+server:
   port: 8080
 
 spring:
@@ -41,6 +41,8 @@ management:
 security:
   auth:
     enabled: ${AUTH_ENABLED:false}
+  admin:
+    scope: ${ADMIN_SCOPE:admin:reindex}
 
 springdoc:
   swagger-ui:
