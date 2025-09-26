@@ -1,100 +1,124 @@
-# Time Series Data API
+﻿# Time Series Data API
 
-This mono-repo hosts the edge gateway and core service for a high-performance time series API, mirroring the CEIC-inspired architecture where a Node.js façade protects and fronts a Java 21 service.
+This repository hosts the public-facing gateway and core service that make up the time series API. The gateway is an Express/TypeScript app that terminates HTTPS, enforces rate limits, validates OAuth2 access tokens, and proxies requests to the Spring Boot service. The service is a Java 21 application that exposes the domain APIs, persists data in PostgreSQL, and publishes OpenAPI documentation.
 
-## Repository layout
+## Repository structure
 
 ```
 timeseries-api/
-├─ gateway/              # Node.js façade (TypeScript)
-├─ service/              # Java Spring Boot service scaffold
-├─ ops/
-│  ├─ docker/            # Docker and compose assets
-│  └─ k6/                # Load test stubs
-├─ docs/
-│  ├─ 01-conceptual-architecture-and-api-design.txt
-│  └─ 02-phased-implementation-playbook.md
-├─ .github/              # CI and repo policies
-├─ .editorconfig         # Shared formatting rules
-├─ .gitattributes        # Line ending normalization
-├─ .gitignore            # Build, env, dependency exclusions
-├─ .env.example          # Sample runtime configuration
-├─ LICENSE               # MIT license
-└─ README.md
+|- gateway/                 Express gateway (TypeScript)
+|- service/                 Spring Boot service (Java 21)
+|- ops/
+|  |- docker/               Docker Compose stack and helper scripts
+|- docs/                    Architecture and design notes
+|- postman/                 Postman collection for manual testing
+|- certs/                   Self-signed development certificates (ignored in prod)
+|- .env.example             Sample environment configuration
+|- Makefile                 Convenience targets for Docker workflows
+|- README.md
 ```
 
-## Getting started
+## Prerequisites
 
-1. Install prerequisites: Node.js 22+, npm 10+, Java 21, and Gradle (wrapper included).
-2. Copy `.env.example` to `.env` and populate secrets locally; keep `.env` out of version control.
-3. Gateway placeholder:
+- Node.js 22 or newer and npm 10 or newer
+- Java 21 (JDK) - the Gradle wrapper is provided
+- Docker and Docker Compose (optional, for the local stack)
+- OpenSSL (optional, to regenerate the development certificates under `certs/`)
+
+## First-time setup
+
+1. Copy the environment template and adjust values as needed:
+   ```bash
+   cp .env.example .env
+   ```
+   The same file is consumed by the gateway, the service, and the Docker Compose stack. Keep secrets out of version control.
+2. Install gateway dependencies:
    ```bash
    cd gateway
    npm install
-   npm run build
-   npm test
    ```
-4. Service placeholder:
+3. (Optional) Warm the service build cache:
    ```bash
-   cd service
+   cd ../service
    ./gradlew build
    ```
 
-The repository follows Conventional Commits and keeps security controls (authn/z, rate limits, secrets via env) front and center even in placeholders.
+## Running locally without Docker
 
-## Local dev stack
-
-The Phase 1 Docker Compose stack mirrors the Architecture Guide’s split gateway/service topology and focuses on the core gateway/service components.
+### Gateway (Express + TypeScript)
 
 ```bash
-cd ops/docker
-cp ../../.env.example ../../.env  # if not already present
-# Core stack
-docker compose up --build
-# Optional services
-docker compose --profile redis up --build
-docker compose --profile jaeger up --build
+cd gateway
+npm run dev        # starts the HTTPS gateway using tsx
+npm run build      # type-check and emit JS to dist/
 ```
 
-Key endpoints once the stack is healthy:
+The gateway listens on HTTPS :${HTTPS_PORT} (default 8443). An auxiliary HTTP listener can redirect or serve traffic depending on `HTTP_MODE`. Update `.env` to point `JAVA_API_URL` at your service instance.
 
-- Gateway health: http://localhost:8081/health → `{ "ok": true }`
-- Service actuator health (internal-only): `docker compose exec ts-service curl -s http://localhost:8080/actuator/health`
-- OpenSearch banner: http://localhost:9200
-- (Profile) Redis: http://localhost:6379
-- (Profile) Jaeger UI: http://localhost:16686
+Key endpoints:
+- https://localhost:8443/health - gateway health check
+- https://localhost:8443/docs - API reference UI served by the gateway
+- https://localhost:8443/docs/openapi.yaml - raw OpenAPI document
 
-Use `make up`, `make down`, `make logs`, or `make ps` from the repo root as shortcuts for the same compose operations.
+### Service (Spring Boot)
 
-## Spring Boot service
-
-Run the service locally when iterating without Docker:
-
-```
+```bash
 cd service
-./gradlew bootRun
+./gradlew bootRun    # runs the service on port 8080
+./gradlew build      # compiles and executes unit/integration tests
 ```
 
-Key endpoints while the application is running outside of Docker (e.g., via `./gradlew bootRun`):
-
-- http://localhost:8080/ (service banner)
-- http://localhost:8080/v1/ping
+Important endpoints while running locally:
 - http://localhost:8080/actuator/health
 - http://localhost:8080/v3/api-docs
 - http://localhost:8080/swagger-ui.html
 
-Set `AUTH_ENABLED=true` and supply `OAUTH_JWKS_URI`, `OAUTH_AUDIENCE`, and `OAUTH_ISSUER` to require JWTs across the gateway and service. The `ADMIN_SCOPE` (default `admin:reindex`) governs which tokens may call bulk mutation endpoints.
-## Security posture (Phase 9)
+Enable authentication by setting `AUTH_ENABLED=true` and providing `OAUTH_JWKS_URI`, `OAUTH_AUDIENCE`, and `OAUTH_ISSUER`. The gateway will enforce JWT validation and forward the bearer token to the service.
 
-- **HTTPS only**: deploy the gateway behind CloudFront or an ALB with TLS termination. Helmet already sends HSTS headers so browsers stay on HTTPS.
-- **Authentication & rate limiting**: when `AUTH_ENABLED=true`, the gateway validates OAuth2 access tokens (RS256) against the configured JWKS, issuer, and audience, forwards the bearer token to the service, and throttles requests with `express-rate-limit`.
-- **Least privilege DB access**: connect with the `ts_api_ro` role (SELECT only). Provision the user separately and avoid using superuser credentials in the app configuration.
-- **Secrets management**: never hard-code credentials; load them from environment variables locally and from AWS Secrets Manager/Parameter Store in deployed environments.
-- **Edge protections**: front the gateway with CloudFront + AWS WAF (with Shield Standard) to enforce HTTPS, HSTS, and absorb L3/L4 attacks.
-- **Validated inputs**: Spring controllers are annotated with `@Validated`, enforce a `seriesId` regex, and coerce query parameters into enums so invalid values fail fast with 400 responses.
-- **Logging & error handling**: JSON logs (pino-http) include request IDs; Problem Detail responses keep error payloads consistent.
-- Review OWASP cheat sheets for [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html), [Input Validation](https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html), [REST Security](https://cheatsheetseries.owasp.org/cheatsheets/REST_Security_Cheat_Sheet.html), and [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) before production hardening.
-- **Reindex**: POST http://localhost:8081/admin/reindex (gateway) triggers the async bulk reindex so newly added series appear in search. Only JWTs containing the `ADMIN_SCOPE` (default `admin:reindex`) may invoke `/admin/reindex` or `/v1/series/batch`.
+## Docker Compose development stack
 
+A convenience stack lives under `ops/docker` and brings up PostgreSQL, the service, the gateway, and optional observability tooling.
 
-- **Docs**: Gateway hosts docs at http://localhost:8081/docs (UI) and exposes the YAML at /docs/openapi.yaml. Use npm run sdk:all to regenerate SDKs.
+```bash
+cd ops/docker
+cp ../../.env.example ../../.env    # if you have not created .env yet
+docker compose up --build            # base stack (gateway + service + database)
+```
+
+Optional profiles:
+- docker compose --profile redis up --build
+- docker compose --profile jaeger up --build
+
+Shortcuts are available from the repo root via `make up`, `make down`, `make logs`, and `make ps`.
+
+## Regenerating SDKs and docs
+
+The root package.json exposes scripts to sync the OpenAPI document and regenerate client SDKs using OpenAPI Generator:
+
+```bash
+npm run spec:pull   # refresh docs/openapi.yaml from the running gateway
+npm run sdk:ts      # generate the TypeScript SDK under sdks/typescript
+npm run sdk:py      # generate the Python SDK under sdks/python
+```
+
+## Security posture
+
+- HTTPS everywhere: the gateway terminates TLS using the certificates in `certs/` for local development. Helmet configures HSTS (max-age=63072000, includeSubDomains, preload).
+- Hardened cookies: all cookies set through `res.cookie` are forced to Secure, HttpOnly, SameSite=strict, and path='/'. Requests that override SameSite to none are still upgraded to Secure.
+- Strict headers: the gateway enables Helmet protections for frame denial, referrer policy (strict-origin-when-cross-origin), CORP/COOP/COEP, and sends a restrictive Permissions-Policy (geolocation=(), camera=(), microphone=()).
+- Spring security headers: the service disables the stock header defaults and issues the same protections (HSTS, frame denial, referrer policy, CORP/COOP/COEP, custom permissions policy). Tomcat is customized to strip Server and disable X-Powered-By.
+- Session configuration: Spring session cookies are marked http-only, secure, and same-site: strict. The service runs stateless when JWT auth is enabled.
+- Rate limiting: the gateway throttles clients (express-rate-limit) and echoes RateLimit-* headers to simplify client back-off.
+- Admin operations: endpoints such as /admin/reindex and /v1/series/batch require a token that carries the ADMIN_SCOPE (defaults to admin:reindex). You can also enforce role-based access by setting ADMIN_ROLE and ADMIN_ROLE_CLAIM.
+
+Review the OWASP Session Management and HTTP Headers cheat sheets before promoting changes to production.
+
+## Troubleshooting
+
+- Gradle test workers fail to start: run with `./gradlew build --no-daemon` to avoid daemon reuse. Ensure Java 21 is on your PATH.
+- Certificates: regenerate local certificates with `make certs` (or `openssl` commands in certs/README.md if present) when they expire.
+- CORS: by default the gateway rejects cross-origin requests. Update the CORS configuration in `gateway/src/app.ts` if you need to allow a browser client.
+
+## Contributing
+
+Follow Conventional Commits for branch and commit messages. Run `npm run build` in `gateway/` and `./gradlew build` in `service/` before opening a PR. Security-related changes should note any new headers, cookie attributes, or environment variables introduced.
