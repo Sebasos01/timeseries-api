@@ -3,8 +3,13 @@ package app.series;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
 import java.io.IOException;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Objects;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpOutputMessage;
 import org.springframework.http.MediaType;
@@ -44,31 +49,67 @@ public class CsvHttpMessageConverter extends AbstractHttpMessageConverter<Object
         writer.write(element);
       }
     } else if (object != null && object.getClass().isArray()) {
-      int length = java.lang.reflect.Array.getLength(object);
+      int length = Array.getLength(object);
       for (int i = 0; i < length; i++) {
-        writer.write(java.lang.reflect.Array.get(object, i));
+        writer.write(Array.get(object, i));
       }
     }
     writer.flush();
   }
 
   private CsvSchema determineSchema(Object value) {
-    Object sample = null;
+    Iterable<?> iterable = null;
     if (value instanceof Collection<?> collection) {
-      sample = collection.stream().filter(Objects::nonNull).findFirst().orElse(null);
+      iterable = collection;
     } else if (value != null && value.getClass().isArray()) {
-      int length = java.lang.reflect.Array.getLength(value);
+      int length = Array.getLength(value);
+      List<Object> elements = new ArrayList<>(length);
       for (int i = 0; i < length; i++) {
-        Object element = java.lang.reflect.Array.get(value, i);
+        elements.add(Array.get(value, i));
+      }
+      iterable = elements;
+    }
+
+    if (iterable != null) {
+      Object sample = null;
+      for (Object element : iterable) {
         if (element != null) {
           sample = element;
           break;
         }
       }
+
+      if (sample instanceof Map<?, ?>) {
+        CsvSchema schema = buildSchemaFromMaps(iterable);
+        if (schema != null) {
+          return schema;
+        }
+      }
+
+      if (sample != null) {
+        return mapper.schemaFor(sample.getClass()).withHeader();
+      }
     }
-    if (sample == null) {
-      return mapper.schemaFor(Object.class).withHeader();
+
+    return mapper.schemaFor(Object.class).withHeader();
+  }
+
+  private CsvSchema buildSchemaFromMaps(Iterable<?> iterable) {
+    Set<String> columns = new LinkedHashSet<>();
+    for (Object element : iterable) {
+      if (element instanceof Map<?, ?> map) {
+        for (Object key : map.keySet()) {
+          if (key != null) {
+            columns.add(key.toString());
+          }
+        }
+      }
     }
-    return mapper.schemaFor(sample.getClass()).withHeader();
+    if (columns.isEmpty()) {
+      return null;
+    }
+    CsvSchema.Builder builder = CsvSchema.builder();
+    columns.forEach(builder::addColumn);
+    return builder.setUseHeader(true).build();
   }
 }

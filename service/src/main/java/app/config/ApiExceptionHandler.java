@@ -10,6 +10,7 @@ import java.util.NoSuchElementException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -49,7 +50,9 @@ public class ApiExceptionHandler {
     body.put("errorCode", ex.errorCode());
     body.put("moreInfo", ex.moreInfo());
     body.put("path", request.getRequestURI());
-    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .body(body);
   }
 
   @ExceptionHandler(NoSuchElementException.class)
@@ -100,7 +103,9 @@ public class ApiExceptionHandler {
     detail.setType(URI.create("https://docs.timeseries-api.dev/problems/" +
         TYPE_SLUGS.getOrDefault(status, "internal-error")));
     detail.setProperty("path", request.getRequestURI());
-    return ResponseEntity.status(status).body(detail);
+    return ResponseEntity.status(status)
+        .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+        .body(detail);
   }
 
   private void logException(HttpStatus status, Exception ex, HttpServletRequest request) {
