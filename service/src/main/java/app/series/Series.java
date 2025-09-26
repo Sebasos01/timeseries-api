@@ -34,8 +34,16 @@ public class Series {
     return seriesId;
   }
 
+  public void setSeriesId(String seriesId) {
+    this.seriesId = seriesId;
+  }
+
   public String getName() {
     return name;
+  }
+
+  public void setName(String name) {
+    this.name = name;
   }
 
   public String getDescription() {
@@ -50,31 +58,63 @@ public class Series {
     return frequency;
   }
 
+  public void setFrequency(char frequency) {
+    this.frequency = frequency;
+  }
+
   public String getUnit() {
     return unit;
+  }
+
+  public void setUnit(String unit) {
+    this.unit = unit;
   }
 
   public String getGeography() {
     return geography;
   }
 
+  public void setGeography(String geography) {
+    this.geography = geography;
+  }
+
   public String getSource() {
     return source;
+  }
+
+  public void setSource(String source) {
+    this.source = source;
   }
 
   public boolean isAdjusted() {
     return isAdjusted;
   }
 
+  public void setAdjusted(boolean adjusted) {
+    isAdjusted = adjusted;
+  }
+
   public LocalDate getStartDate() {
     return startDate;
+  }
+
+  public void setStartDate(LocalDate startDate) {
+    this.startDate = startDate;
   }
 
   public LocalDate getEndDate() {
     return endDate;
   }
 
+  public void setEndDate(LocalDate endDate) {
+    this.endDate = endDate;
+  }
+
   public Instant getLastUpdate() {
     return lastUpdate;
+  }
+
+  public void setLastUpdate(Instant lastUpdate) {
+    this.lastUpdate = lastUpdate;
   }
 }
