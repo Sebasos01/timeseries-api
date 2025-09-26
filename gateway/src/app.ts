@@ -7,6 +7,7 @@ import pinoHttp from 'pino-http';
 import axios from 'axios';
 import { expressjwt, GetVerificationKey } from 'express-jwt';
 import jwksRsa from 'jwks-rsa';
+import { ProxyAgent } from 'proxy-agent';
 import docsRoute from './routes/docs.js';
 
 const WINDOW_MS = 60_000;
@@ -131,12 +132,25 @@ if (AUTH_ENABLED) {
     throw new Error('AUTH_ENABLED=true but OAUTH_ISSUER is not configured.');
   }
 
+  type JwksOptions = Parameters<typeof jwksRsa.expressJwtSecret>[0];
+  const jwksOptions: JwksOptions = {
+    cache: true,
+    rateLimit: true,
+    jwksUri,
+  };
+
+  const hasProxyConfig =
+    typeof process.env.HTTPS_PROXY === 'string' ||
+    typeof process.env.HTTP_PROXY === 'string' ||
+    typeof process.env.NO_PROXY === 'string' ||
+    typeof process.env.no_proxy === 'string';
+
+  if (hasProxyConfig) {
+    jwksOptions.requestAgent = new ProxyAgent();
+  }
+
   authenticate = expressjwt({
-    secret: jwksRsa.expressJwtSecret({
-      cache: true,
-      rateLimit: true,
-      jwksUri,
-    }) as GetVerificationKey,
+    secret: jwksRsa.expressJwtSecret(jwksOptions) as GetVerificationKey,
     audience,
     issuer,
     algorithms: ['RS256'],

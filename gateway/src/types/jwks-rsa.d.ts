@@ -8,6 +8,7 @@ declare module 'jwks-rsa' {
     jwksUri: string;
     rateLimit?: boolean;
     jwksRequestsPerMinute?: number;
+    requestAgent?: unknown;
   }
 
   export function expressJwtSecret(options: Options): GetVerificationKey;
