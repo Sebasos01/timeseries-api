@@ -18,6 +18,11 @@ public record SeriesDataResponse(
     @JsonProperty("start_date") LocalDate startDate,
     @JsonProperty("end_date") LocalDate endDate,
     @JsonProperty("point_count") int pointCount,
+    @JsonProperty("total_points") int totalPoints,
+    @JsonProperty("page") int page,
+    @JsonProperty("page_size") int pageSize,
+    @JsonProperty("total_pages") int totalPages,
+    @JsonProperty("has_more") boolean hasMore,
     List<List<Object>> points,
     Map<String, Object> metadata
 ) {}

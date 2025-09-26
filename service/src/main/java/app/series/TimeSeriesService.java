@@ -37,7 +37,7 @@ public class TimeSeriesService {
   }
 
   public SeriesDataResult getData(String id, LocalDate start, LocalDate end, LocalDate asOf,
-      Frequency frequency, Transform transform, FillPolicy fillPolicy) {
+      Frequency frequency, Transform transform, FillPolicy fillPolicy, int page, int pageSize) {
 
     if (!StringUtils.hasText(id)) {
       throw new IllegalArgumentException("id must be provided");
@@ -69,13 +69,19 @@ public class TimeSeriesService {
     List<DataPoint> transformed = Transformer.apply(points, transform, targetFrequency);
     List<DataPoint> finalPoints = Filler.fill(transformed, fillPolicy);
 
+    int totalPoints = finalPoints.size();
+    int totalPages = totalPoints == 0 ? 0 : (int) Math.ceil((double) totalPoints / pageSize);
+    int fromIndex = Math.min(Math.max(0, (page - 1) * pageSize), totalPoints);
+    int toIndex = Math.min(fromIndex + pageSize, totalPoints);
+    List<DataPoint> pagePoints = new ArrayList<>(finalPoints.subList(fromIndex, toIndex));
+
     SeriesDataResponse response = buildResponse(series, asOf, targetFrequency, transform,
-        fillPolicy, finalPoints);
+        fillPolicy, finalPoints, pagePoints, page, pageSize, totalPoints, totalPages);
 
     String etag = computeEtag(id, effectiveStart, effectiveEnd, asOf, targetFrequency, transform,
-        fillPolicy, series.getLastUpdate(), finalPoints);
+        fillPolicy, series.getLastUpdate(), finalPoints, page, pageSize);
 
-    return new SeriesDataResult(response, finalPoints, etag, series.getLastUpdate());
+    return new SeriesDataResult(response, pagePoints, etag, series.getLastUpdate());
   }
 
   private SeriesDto toDto(Series series) {
@@ -114,10 +120,11 @@ public class TimeSeriesService {
 
   private SeriesDataResponse buildResponse(Series series, LocalDate asOf,
       Frequency effectiveFrequency, Transform transform, FillPolicy fillPolicy,
-      List<DataPoint> points) {
+      List<DataPoint> allPoints, List<DataPoint> pagePoints, int page, int pageSize,
+      int totalPoints, int totalPages) {
 
-    List<List<Object>> tuples = new ArrayList<>(points.size());
-    for (DataPoint point : points) {
+    List<List<Object>> tuples = new ArrayList<>(pagePoints.size());
+    for (DataPoint point : pagePoints) {
       List<Object> tuple = new ArrayList<>(2);
       tuple.add(point.date() != null ? point.date().toString() : null);
       tuple.add(point.value());
@@ -136,8 +143,9 @@ public class TimeSeriesService {
     metadata.put("is_adjusted", series.isAdjusted());
     metadata.values().removeIf(Objects::isNull);
 
-    LocalDate firstDate = points.isEmpty() ? null : points.get(0).date();
-    LocalDate lastDate = points.isEmpty() ? null : points.get(points.size() - 1).date();
+    LocalDate firstDate = allPoints.isEmpty() ? null : allPoints.get(0).date();
+    LocalDate lastDate = allPoints.isEmpty() ? null : allPoints.get(allPoints.size() - 1).date();
+    boolean hasMore = page < totalPages;
 
     return new SeriesDataResponse(
         series.getSeriesId(),
@@ -149,14 +157,19 @@ public class TimeSeriesService {
         fillPolicy.name().toLowerCase(Locale.ROOT),
         firstDate,
         lastDate,
-        points.size(),
+        pagePoints.size(),
+        totalPoints,
+        page,
+        pageSize,
+        totalPages,
+        hasMore,
         tuples,
         metadata);
   }
 
   private String computeEtag(String id, LocalDate start, LocalDate end, LocalDate asOf,
       Frequency frequency, Transform transform, FillPolicy fillPolicy, Instant lastModified,
-      List<DataPoint> points) {
+      List<DataPoint> points, int page, int pageSize) {
 
     StringBuilder builder = new StringBuilder();
     builder.append(Objects.toString(id, "")).append('|')
@@ -167,7 +180,9 @@ public class TimeSeriesService {
         .append(transform.name()).append('|')
         .append(fillPolicy.name()).append('|')
         .append(Objects.toString(lastModified, "")).append('|')
-        .append(points.size());
+        .append(points.size()).append('|')
+        .append(page).append('|')
+        .append(pageSize);
 
     for (DataPoint point : points) {
       builder.append('|')

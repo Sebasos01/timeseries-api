@@ -18,7 +18,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -45,6 +44,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class SeriesController {
   private static final MediaType CSV_MEDIA_TYPE = MediaType.valueOf("text/csv");
   private static final String SERIES_ID_REGEX = "^[A-Za-z0-9_.-]{1,64}$";
+  private static final String ERROR_DOCS_BASE = "https://developers.company.com/docs/errors/";
+  private static final int MAX_PAGE_SIZE = 1000;
 
   private final TimeSeriesService svc;
   private final SeriesSearchService searchService;
@@ -105,13 +106,19 @@ public class SeriesController {
       @RequestParam(defaultValue = "native") String freq,
       @RequestParam(defaultValue = "as_is") String transform,
       @RequestParam(defaultValue = "none") String fill,
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(name = "page_size", defaultValue = "500") int pageSize,
+      @RequestParam(name = "format", required = false) String format,
       @RequestHeader(value = HttpHeaders.ACCEPT, required = false) String accept) {
 
-    Frequency frequency = parseEnum(freq, Frequency::valueOf, "freq");
-    Transform transformType = parseEnum(transform, Transform::valueOf, "transform");
-    FillPolicy fillPolicy = parseEnum(fill, FillPolicy::valueOf, "fill");
+    Frequency frequency = parseFrequency(freq);
+    Transform transformType = parseTransform(transform);
+    FillPolicy fillPolicy = parseFill(fill);
+    validatePage(page);
+    validatePageSize(pageSize);
 
-    SeriesDataResult result = svc.getData(id, start, end, asOf, frequency, transformType, fillPolicy);
+    SeriesDataResult result = svc.getData(id, start, end, asOf, frequency, transformType, fillPolicy,
+        page, pageSize);
     String etag = result.etag();
 
     String ifNoneMatch = currentRequestHeader(HttpHeaders.IF_NONE_MATCH);
@@ -121,7 +128,7 @@ public class SeriesController {
           .build();
     }
 
-    MediaType contentType = selectMediaType(accept);
+    MediaType contentType = selectMediaType(format, accept);
     ResponseEntity.BodyBuilder builder = ResponseEntity.ok().eTag(etag);
     Instant lastModified = result.lastModified();
     if (lastModified != null) {
@@ -166,7 +173,7 @@ public class SeriesController {
       @RequestParam(name = "page_size", defaultValue = "50") @Parameter(description = "Page size", example = "25") int pageSize,
       @RequestParam(name = "fields", required = false)
           @Parameter(description = "Comma separated list of fields for sparse response", example = "seriesId,name") String fields) {
-    Frequency frequency = parseEnum(freq, Frequency::valueOf, "freq");
+    Frequency frequency = parseFrequency(freq);
     var results = searchService.search(q, country, frequency, page, pageSize);
     if (!StringUtils.hasText(fields)) {
       return ResponseEntity.ok(results);
@@ -202,15 +209,54 @@ public class SeriesController {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private static <E extends Enum<E>> E parseEnum(String value, Function<String, E> resolver, String field) {
+  private static Frequency parseFrequency(String value) {
     try {
-      return resolver.apply(value.toUpperCase(Locale.ROOT));
+      return Frequency.valueOf(value.toUpperCase(Locale.ROOT));
     } catch (IllegalArgumentException ex) {
-      throw new IllegalArgumentException("Invalid " + field + " parameter");
+      throw invalidParameter("Invalid frequency code. Supported values: native,D,W,M,Q,A.", 1002);
     }
   }
 
-  private static MediaType selectMediaType(String accept) {
+  private static Transform parseTransform(String value) {
+    try {
+      return Transform.valueOf(value.toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException ex) {
+      throw invalidParameter(
+          "Invalid transform code. Supported values: as_is,yoy,mom,pct_change,ytd,diff.", 1003);
+    }
+  }
+
+  private static FillPolicy parseFill(String value) {
+    try {
+      return FillPolicy.valueOf(value.toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException ex) {
+      throw invalidParameter("Invalid fill policy. Supported values: none,ffill,bfill.", 1004);
+    }
+  }
+
+  private static void validatePage(int page) {
+    if (page < 1) {
+      throw invalidParameter("Invalid page parameter. Must be greater than or equal to 1.", 1005);
+    }
+  }
+
+  private static void validatePageSize(int pageSize) {
+    if (pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
+      throw invalidParameter(
+          "Invalid page_size parameter. Supported range: 1-" + MAX_PAGE_SIZE + ".", 1006);
+    }
+  }
+
+  private static MediaType selectMediaType(String format, String accept) {
+    if (StringUtils.hasText(format)) {
+      if ("csv".equalsIgnoreCase(format)) {
+        return CSV_MEDIA_TYPE;
+      }
+      if ("json".equalsIgnoreCase(format)) {
+        return MediaType.APPLICATION_JSON;
+      }
+      throw invalidParameter("Invalid format value. Supported values: json,csv.", 1007);
+    }
     if (!StringUtils.hasText(accept)) {
       return MediaType.APPLICATION_JSON;
     }
@@ -226,6 +272,10 @@ public class SeriesController {
       }
     }
     return MediaType.APPLICATION_JSON;
+  }
+
+  private static InvalidParameterException invalidParameter(String message, int errorCode) {
+    return new InvalidParameterException(message, errorCode, ERROR_DOCS_BASE + errorCode);
   }
 
   private static String currentRequestHeader(String headerName) {

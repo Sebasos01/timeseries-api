@@ -80,6 +80,24 @@ class SeriesDataControllerIT {
     assertThat(points.size()).isEqualTo(pointCount.intValue());
     assertThat(points.get(0).get(0)).isEqualTo("2018-03-31");
 
+    Number totalPoints = (Number) body.get("total_points");
+    assertThat(totalPoints).isNotNull();
+    assertThat(totalPoints.intValue()).isGreaterThanOrEqualTo(pointCount.intValue());
+
+    Number pageNumber = (Number) body.get("page");
+    assertThat(pageNumber).isNotNull();
+    assertThat(pageNumber.intValue()).isEqualTo(1);
+
+    Number pageSize = (Number) body.get("page_size");
+    assertThat(pageSize).isNotNull();
+    assertThat(pageSize.intValue()).isEqualTo(500);
+
+    Number totalPages = (Number) body.get("total_pages");
+    assertThat(totalPages).isNotNull();
+    assertThat(totalPages.intValue()).isGreaterThanOrEqualTo(1);
+
+    assertThat(body.get("has_more")).isEqualTo(Boolean.FALSE);
+
     @SuppressWarnings("unchecked")
     Map<String, Object> metadata = (Map<String, Object>) body.get("metadata");
     assertThat(metadata).isNotNull();
@@ -104,5 +122,44 @@ class SeriesDataControllerIT {
     assertThat(response.getBody()).contains("date,value");
     assertThat(response.getBody()).contains("2018-03-31");
     assertThat(response.getBody()).doesNotContain("100.0");
+  }
+
+  @Test
+  void getSeriesDataSupportsPagination() {
+    ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+        "/v1/series/US.GDP.Q.NSA/data?page=2&page_size=5",
+        HttpMethod.GET,
+        null,
+        new ParameterizedTypeReference<>() {});
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+    Map<String, Object> body = response.getBody();
+    assertThat(body).isNotNull();
+    assertThat(((Number) body.get("page")).intValue()).isEqualTo(2);
+    assertThat(((Number) body.get("page_size")).intValue()).isEqualTo(5);
+    assertThat(((Number) body.get("total_pages")).intValue()).isGreaterThanOrEqualTo(2);
+
+    @SuppressWarnings("unchecked")
+    List<List<Object>> points = (List<List<Object>>) body.get("points");
+    assertThat(points).isNotNull();
+    assertThat(points.size()).isLessThanOrEqualTo(5);
+  }
+
+  @Test
+  void getSeriesDataReturnsHelpfulErrorForInvalidFrequency() {
+    ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+        "/v1/series/US.GDP.Q.NSA/data?freq=invalid",
+        HttpMethod.GET,
+        null,
+        new ParameterizedTypeReference<>() {});
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+    Map<String, Object> body = response.getBody();
+    assertThat(body).isNotNull();
+    assertThat(body.get("error")).isEqualTo("Invalid frequency code. Supported values: native,D,W,M,Q,A.");
+    assertThat(body.get("errorCode")).isEqualTo(1002);
+    assertThat(body.get("moreInfo")).isEqualTo("https://developers.company.com/docs/errors/1002");
   }
 }

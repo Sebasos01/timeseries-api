@@ -18,7 +18,7 @@ public final class Transformer {
         for (var p : in) {
           Double value = p.value();
           Double v = (prev == null || value == null) ? null : value - prev;
-          out.add(new DataPoint(p.date(), v));
+          out.add(new DataPoint(p.date(), normalize(v)));
           prev = value;
         }
       }
@@ -29,7 +29,7 @@ public final class Transformer {
           Double v = (prev == null || value == null || prev == 0d)
               ? null
               : ((value / prev) - 1d) * 100d;
-          out.add(new DataPoint(p.date(), v));
+          out.add(new DataPoint(p.date(), normalize(v)));
           prev = value;
         }
       }
@@ -45,7 +45,7 @@ public final class Transformer {
               v = ((value / base) - 1d) * 100d;
             }
           }
-          out.add(new DataPoint(current.date(), v));
+          out.add(new DataPoint(current.date(), normalize(v)));
         }
       }
       case YTD -> {
@@ -70,7 +70,7 @@ public final class Transformer {
               v = ((value / base) - 1d) * 100d;
             }
           }
-          out.add(new DataPoint(date, v));
+          out.add(new DataPoint(date, normalize(v)));
         }
       }
       default -> {
@@ -88,5 +88,13 @@ public final class Transformer {
       case W -> 52;
       case D -> 365;
     };
+  }
+
+  private static Double normalize(Double value) {
+    if (value == null) {
+      return null;
+    }
+    double scaled = Math.round(value * 1_000_000d);
+    return scaled / 1_000_000d;
   }
 }

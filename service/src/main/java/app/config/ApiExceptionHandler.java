@@ -1,8 +1,10 @@
 package app.config;
 
+import app.series.InvalidParameterException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import org.slf4j.Logger;
@@ -36,6 +38,18 @@ public class ApiExceptionHandler {
       MethodArgumentTypeMismatchException.class, IllegalArgumentException.class})
   public ResponseEntity<ProblemDetail> handleBadRequest(Exception ex, HttpServletRequest request) {
     return buildProblem(HttpStatus.BAD_REQUEST, ex, request);
+  }
+
+  @ExceptionHandler(InvalidParameterException.class)
+  public ResponseEntity<Map<String, Object>> handleInvalidParameter(InvalidParameterException ex,
+      HttpServletRequest request) {
+    logException(HttpStatus.BAD_REQUEST, ex, request);
+    Map<String, Object> body = new HashMap<>();
+    body.put("error", ex.getMessage());
+    body.put("errorCode", ex.errorCode());
+    body.put("moreInfo", ex.moreInfo());
+    body.put("path", request.getRequestURI());
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
   }
 
   @ExceptionHandler(NoSuchElementException.class)
