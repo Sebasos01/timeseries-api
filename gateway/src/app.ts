@@ -14,6 +14,8 @@ import { expressjwt, GetVerificationKey } from 'express-jwt';
 import jwksRsa from 'jwks-rsa';
 import { ProxyAgent } from 'proxy-agent';
 import docsRoute from './routes/docs.js';
+import { errorHandler } from './utils/error-handler.js';
+import { proxyHandler } from './utils/proxy-wrapper.js';
 
 const WINDOW_MS = 60_000;
 const DATA_CACHE_TTL_MS = Number(process.env.DATA_CACHE_TTL_MS ?? 60_000);
@@ -195,7 +197,14 @@ const requireAdmin: RequestHandler = (req, res, next) => {
     return next();
   }
 
-  return res.status(403).json({ error: 'Forbidden: admin privileges required' });
+  return res
+    .status(403)
+    .type('application/problem+json')
+    .json({
+      title: 'Forbidden',
+      detail: 'Access denied.',
+      status: 403,
+    });
 };
 
 const forwardAuthorization = (req: Request, headers: Record<string, string>) => {
@@ -219,40 +228,33 @@ const forwardHeaderIfString = (
 
 app.use(authenticate);
 
-app.get('/', async (req, res) => {
-  try {
+app.get(
+  '/',
+  proxyHandler(async (req, res) => {
     const headers: Record<string, string> = {};
     forwardHeaderIfString(req, headers, 'accept', 'Accept');
     forwardAuthorization(req, headers);
 
     const r = await axios.get(`${JAVA_API}/`, { headers });
-    return res.status(r.status).send(r.data);
-  } catch (e: any) {
-    if (e.response) {
-      return res.status(e.response.status).send(e.response.data);
-    }
-    return res.status(502).json({ error: 'Bad Gateway' });
-  }
-});
+    res.status(r.status).send(r.data);
+  }),
+);
 
-app.get('/v1/ping', async (req, res) => {
-  try {
+app.get(
+  '/v1/ping',
+  proxyHandler(async (req, res) => {
     const headers: Record<string, string> = {};
     forwardHeaderIfString(req, headers, 'accept', 'Accept');
     forwardAuthorization(req, headers);
 
     const r = await axios.get(`${JAVA_API}/v1/ping`, { headers });
-    return res.status(r.status).send(r.data);
-  } catch (e: any) {
-    if (e.response) {
-      return res.status(e.response.status).send(e.response.data);
-    }
-    return res.status(502).json({ error: 'Bad Gateway' });
-  }
-});
+    res.status(r.status).send(r.data);
+  }),
+);
 
-app.get('/v1/series/search', async (req, res) => {
-  try {
+app.get(
+  '/v1/series/search',
+  proxyHandler(async (req, res) => {
     const headers: Record<string, string> = {};
     forwardHeaderIfString(req, headers, 'accept', 'Accept');
     forwardHeaderIfString(req, headers, 'if-none-match', 'If-None-Match');
@@ -267,46 +269,41 @@ app.get('/v1/series/search', async (req, res) => {
     if (r.headers.etag) {
       res.setHeader('ETag', r.headers.etag as string);
     }
-    return res.status(r.status).send(r.data);
-  } catch (e: any) {
-    const { response } = e;
-    if (response) {
-      if (response.headers?.etag) {
-        res.setHeader('ETag', response.headers.etag as string);
-      }
-      return res.status(response.status).send(response.data);
-    }
-    return res.status(502).json({ error: 'Bad Gateway' });
-  }
-});
+
+    res.status(r.status).send(r.data);
+  }),
+);
 
 // Proxy example: series data
-app.get('/v1/series/:id/data', async (req, res) => {
-  const accept = req.headers.accept ?? 'application/json';
-  const cacheKey = `${req.originalUrl}|${accept}`;
-  const cached = dataCache.get(cacheKey);
-  const shouldCache = DATA_CACHE_TTL_MS > 0;
-  const clientIfNoneMatchHeader = req.headers['if-none-match'] as string | string[] | undefined;
-  const clientEtags = parseIfNoneMatch(clientIfNoneMatchHeader);
-  const now = Date.now();
+app.get(
+  '/v1/series/:id/data',
+  proxyHandler(async (req, res) => {
+    const accept = req.headers.accept ?? 'application/json';
+    const cacheKey = `${req.originalUrl}|${accept}`;
+    const cached = dataCache.get(cacheKey);
+    const shouldCache = DATA_CACHE_TTL_MS > 0;
+    const clientIfNoneMatchHeader = req.headers['if-none-match'] as string | string[] | undefined;
+    const clientEtags = parseIfNoneMatch(clientIfNoneMatchHeader);
+    const now = Date.now();
 
-  if (shouldCache && cached) {
-    if (now - cached.timestamp >= DATA_CACHE_TTL_MS) {
-      dataCache.delete(cacheKey);
-    } else {
-      if (cached.etag && clientEtags.includes(cached.etag)) {
+    if (shouldCache && cached) {
+      if (now - cached.timestamp >= DATA_CACHE_TTL_MS) {
+        dataCache.delete(cacheKey);
+      } else {
+        if (cached.etag && clientEtags.includes(cached.etag)) {
+          res.setHeader('X-Cache', 'HIT');
+          res.setHeader('ETag', cached.etag);
+          res.status(304).end();
+          return;
+        }
         res.setHeader('X-Cache', 'HIT');
-        res.setHeader('ETag', cached.etag);
-        return res.status(304).end();
+        if (cached.etag) res.setHeader('ETag', cached.etag);
+        res.status(200).send(cached.body);
+        return;
       }
-      res.setHeader('X-Cache', 'HIT');
-      if (cached.etag) res.setHeader('ETag', cached.etag);
-      return res.status(200).send(cached.body);
     }
-  }
 
-  res.setHeader('X-Cache', 'MISS');
-  try {
+    res.setHeader('X-Cache', 'MISS');
     const headers: Record<string, string> = { Accept: accept };
     if (typeof clientIfNoneMatchHeader === 'string') {
       headers['If-None-Match'] = clientIfNoneMatchHeader;
@@ -331,21 +328,14 @@ app.get('/v1/series/:id/data', async (req, res) => {
         etag: r.headers.etag,
       });
     }
-    return res.status(r.status).send(r.data);
-  } catch (e: any) {
-    const { response } = e;
-    if (response) {
-      if (response.headers?.etag) {
-        res.setHeader('ETag', response.headers.etag);
-      }
-      return res.status(response.status).send(response.data);
-    }
-    return res.status(502).json({ error: 'Bad Gateway' });
-  }
-});
 
-app.get('/v1/series/:id', async (req, res) => {
-  try {
+    res.status(r.status).send(r.data);
+  }),
+);
+
+app.get(
+  '/v1/series/:id',
+  proxyHandler(async (req, res) => {
     const headers: Record<string, string> = {};
     forwardHeaderIfString(req, headers, 'accept', 'Accept');
     forwardHeaderIfString(req, headers, 'if-none-match', 'If-None-Match');
@@ -361,21 +351,15 @@ app.get('/v1/series/:id', async (req, res) => {
     if (r.headers.etag) {
       res.setHeader('ETag', r.headers.etag as string);
     }
-    return res.status(r.status).send(r.data);
-  } catch (e: any) {
-    const { response } = e;
-    if (response) {
-      if (response.headers?.etag) {
-        res.setHeader('ETag', response.headers.etag as string);
-      }
-      return res.status(response.status).send(response.data);
-    }
-    return res.status(502).json({ error: 'Bad Gateway' });
-  }
-});
 
-app.post('/v1/series/batch', requireAdmin, async (req, res) => {
-  try {
+    res.status(r.status).send(r.data);
+  }),
+);
+
+app.post(
+  '/v1/series/batch',
+  requireAdmin,
+  proxyHandler(async (req, res) => {
     const headers: Record<string, string> = {};
     if (typeof req.headers.accept === 'string') {
       headers.Accept = req.headers.accept;
@@ -387,14 +371,12 @@ app.post('/v1/series/batch', requireAdmin, async (req, res) => {
 
     const r = await axios.post(`${JAVA_API}/v1/series/batch`, req.body, { headers });
     res.status(r.status).send(r.data);
-  } catch (e: any) {
-    if (e.response) res.status(e.response.status).send(e.response.data);
-    else res.status(502).json({ error: 'Bad Gateway' });
-  }
-});
+  }),
+);
 
-app.post('/v1/exports', async (req, res) => {
-  try {
+app.post(
+  '/v1/exports',
+  proxyHandler(async (req, res) => {
     const headers: Record<string, string> = {};
     forwardHeaderIfString(req, headers, 'accept', 'Accept');
     forwardHeaderIfString(req, headers, 'content-type', 'Content-Type');
@@ -402,15 +384,14 @@ app.post('/v1/exports', async (req, res) => {
 
     const r = await axios.post(`${JAVA_API}/v1/exports`, req.body, { headers });
     res.status(r.status).send(r.data);
-  } catch (e: any) {
-    if (e.response) res.status(e.response.status).send(e.response.data);
-    else res.status(502).json({ error: 'Bad Gateway' });
-  }
-});
+  }),
+);
 
 // Admin reindex proxy
-app.post('/admin/reindex', requireAdmin, async (req, res) => {
-  try {
+app.post(
+  '/admin/reindex',
+  requireAdmin,
+  proxyHandler(async (req, res) => {
     const headers: Record<string, string> = {};
     if (typeof req.headers.accept === 'string') {
       headers.Accept = req.headers.accept;
@@ -419,11 +400,10 @@ app.post('/admin/reindex', requireAdmin, async (req, res) => {
 
     const r = await axios.post(`${JAVA_API}/admin/reindex`, req.body, { headers });
     res.status(r.status).send(r.data);
-  } catch (e: any) {
-    if (e.response) res.status(e.response.status).send(e.response.data);
-    else res.status(502).json({ error: 'Bad Gateway' });
-  }
-});
+  }),
+);
+
+app.use(errorHandler);
 
 let sslKey: Buffer;
 let sslCert: Buffer;
