@@ -85,7 +85,7 @@
       "request": {
         "method": "GET",
         "header": [],
-        "url": "{{baseUrl}}/v1/series/{{seriesId}}/data?start={{startDate}}&end={{endDate}}&as_of={{asOfDate}}&freq={{frequency}}&transform={{transform}}&fill={{fillPolicy}}"
+        "url": "{{baseUrl}}/v1/series/{{seriesId}}/data?start={{startDate}}&end={{endDate}}&as_of={{asOfDate}}&freq={{frequency}}&transform={{transform}}&fill={{fillPolicy}}&page={{dataPage}}&page_size={{dataPageSize}}"
       },
       "event": [
         {
@@ -117,7 +117,7 @@
             "value": "text/csv"
           }
         ],
-        "url": "{{baseUrl}}/v1/series/{{seriesId}}/data?freq={{frequency}}"
+        "url": "{{baseUrl}}/v1/series/{{seriesId}}/data?start={{startDate}}&end={{endDate}}&as_of={{asOfDate}}&freq={{frequency}}&transform={{transform}}&fill={{fillPolicy}}&page={{dataPage}}&page_size={{dataPageSize}}&format=csv"
       },
       "event": [
         {
@@ -293,6 +293,14 @@
     {
       "key": "searchFields",
       "value": "seriesId,name,description"
+    },
+    {
+      "key": "dataPage",
+      "value": "1"
+    },
+    {
+      "key": "dataPageSize",
+      "value": "250"
     }
   ]
 }
