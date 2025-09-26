@@ -264,11 +264,11 @@ public class SeriesController {
     mediaTypes.sort(Comparator.comparingDouble(MediaType::getQualityValue).reversed());
     MimeTypeUtils.sortBySpecificity(mediaTypes);
     for (MediaType mediaType : mediaTypes) {
-      if (mediaType.isCompatibleWith(CSV_MEDIA_TYPE)) {
-        return CSV_MEDIA_TYPE;
-      }
       if (mediaType.isCompatibleWith(MediaType.APPLICATION_JSON)) {
         return MediaType.APPLICATION_JSON;
+      }
+      if (mediaType.isCompatibleWith(CSV_MEDIA_TYPE)) {
+        return CSV_MEDIA_TYPE;
       }
     }
     return MediaType.APPLICATION_JSON;
