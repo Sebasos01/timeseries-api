@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Time Series API",
-    "description": "Collection covering the public endpoints exposed by the Time Series service. Update the `baseUrl` variable to point at either the Spring service (when running outside Docker) or the edge gateway (default http://localhost:8081).",
+    "description": "Collection covering the public endpoints exposed by the Time Series service. Update the `baseUrl` variable to point at either the Spring service (when running outside Docker) or the edge gateway (default https://localhost:8443).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -284,7 +284,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:8081"
+      "value": "https://localhost:8443"
     },
     {
       "key": "seriesId",

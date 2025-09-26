@@ -34,9 +34,23 @@ const parsePort = (value: string | undefined, fallback: number): number => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 const HTTPS_PORT = parsePort(process.env.HTTPS_PORT, 8443);
-const HTTP_PORT = parsePort(process.env.HTTP_PORT, 8081);
+const HTTP_PORT = parsePort(process.env.HTTP_PORT, 8080);
 const PUBLIC_HTTPS_PORT = parsePort(process.env.PUBLIC_HTTPS_PORT, HTTPS_PORT);
-const REDIRECT_HTTP = (process.env.REDIRECT_HTTP ?? 'true').toLowerCase() !== 'false';
+
+type HttpMode = 'redirect' | 'serve' | 'off';
+const parseHttpMode = (): HttpMode => {
+  const mode = process.env.HTTP_MODE?.trim().toLowerCase();
+  if (mode === 'redirect' || mode === 'serve' || mode === 'off') {
+    return mode;
+  }
+  const legacy = process.env.REDIRECT_HTTP;
+  if (legacy) {
+    return legacy.toLowerCase() === 'false' ? 'serve' : 'redirect';
+  }
+  return 'redirect';
+};
+
+const HTTP_MODE = parseHttpMode();
 const SSL_KEY_PATH = process.env.SSL_KEY_PATH ?? path.resolve(process.cwd(), '../certs/server.key');
 const SSL_CERT_PATH = process.env.SSL_CERT_PATH ?? path.resolve(process.cwd(), '../certs/server.crt');
 const limiter = rateLimit({
@@ -204,6 +218,38 @@ const forwardHeaderIfString = (
 };
 
 app.use(authenticate);
+
+app.get('/', async (req, res) => {
+  try {
+    const headers: Record<string, string> = {};
+    forwardHeaderIfString(req, headers, 'accept', 'Accept');
+    forwardAuthorization(req, headers);
+
+    const r = await axios.get(`${JAVA_API}/`, { headers });
+    return res.status(r.status).send(r.data);
+  } catch (e: any) {
+    if (e.response) {
+      return res.status(e.response.status).send(e.response.data);
+    }
+    return res.status(502).json({ error: 'Bad Gateway' });
+  }
+});
+
+app.get('/v1/ping', async (req, res) => {
+  try {
+    const headers: Record<string, string> = {};
+    forwardHeaderIfString(req, headers, 'accept', 'Accept');
+    forwardAuthorization(req, headers);
+
+    const r = await axios.get(`${JAVA_API}/v1/ping`, { headers });
+    return res.status(r.status).send(r.data);
+  } catch (e: any) {
+    if (e.response) {
+      return res.status(e.response.status).send(e.response.data);
+    }
+    return res.status(502).json({ error: 'Bad Gateway' });
+  }
+});
 
 app.get('/v1/series/search', async (req, res) => {
   try {
@@ -404,7 +450,7 @@ httpsServer.listen(HTTPS_PORT, () => {
   console.log(`Gateway listening on HTTPS :${HTTPS_PORT}`);
 });
 
-if (REDIRECT_HTTP) {
+if (HTTP_MODE === 'redirect') {
   const redirectApp = express();
   // Lightweight HTTP server that enforces HTTPS via permanent redirects.
   redirectApp.disable('x-powered-by');
@@ -419,6 +465,12 @@ if (REDIRECT_HTTP) {
   http.createServer(redirectApp).listen(HTTP_PORT, () => {
     console.log(`Redirecting HTTP :${HTTP_PORT} -> HTTPS :${PUBLIC_HTTPS_PORT}`);
   });
+} else if (HTTP_MODE === 'serve') {
+  http.createServer(app).listen(HTTP_PORT, () => {
+    console.log(`Gateway listening on HTTP :${HTTP_PORT}`);
+  });
+} else {
+  console.log('HTTP listener disabled (HTTP_MODE=off).');
 }
 
 export default app;
