@@ -1,3 +1,8 @@
+import fs from 'node:fs';
+import http from 'node:http';
+import https from 'node:https';
+import path from 'node:path';
+
 import express, { Request, RequestHandler } from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -24,6 +29,16 @@ const AUTH_ENABLED = process.env.AUTH_ENABLED === 'true';
 const ADMIN_SCOPE = process.env.ADMIN_SCOPE ?? 'admin:reindex';
 const ADMIN_ROLE = process.env.ADMIN_ROLE;
 const ADMIN_ROLE_CLAIM = process.env.ADMIN_ROLE_CLAIM ?? 'roles';
+const parsePort = (value: string | undefined, fallback: number): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+const HTTPS_PORT = parsePort(process.env.HTTPS_PORT, 8443);
+const HTTP_PORT = parsePort(process.env.HTTP_PORT, 8081);
+const PUBLIC_HTTPS_PORT = parsePort(process.env.PUBLIC_HTTPS_PORT, HTTPS_PORT);
+const REDIRECT_HTTP = (process.env.REDIRECT_HTTP ?? 'true').toLowerCase() !== 'false';
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH ?? path.resolve(process.cwd(), '../certs/server.key');
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH ?? path.resolve(process.cwd(), '../certs/server.crt');
 const limiter = rateLimit({
   windowMs: WINDOW_MS,
   max: 120,
@@ -364,8 +379,47 @@ app.post('/admin/reindex', requireAdmin, async (req, res) => {
   }
 });
 
-const PORT = Number(process.env.PORT ?? 8081);
-app.listen(PORT, () => console.log(`Gateway listening on :${PORT}`));
+let sslKey: Buffer;
+let sslCert: Buffer;
+
+// Load TLS key pair (fail fast if the expected files are missing).
+try {
+  sslKey = fs.readFileSync(SSL_KEY_PATH);
+  sslCert = fs.readFileSync(SSL_CERT_PATH);
+} catch (error) {
+  console.error(`Failed to read TLS credentials. Expected key at ${SSL_KEY_PATH} and cert at ${SSL_CERT_PATH}.`);
+  throw error;
+}
+
+const httpsServer = https.createServer(
+  {
+    key: sslKey,
+    cert: sslCert,
+    minVersion: 'TLSv1.2',
+  },
+  app,
+);
+
+httpsServer.listen(HTTPS_PORT, () => {
+  console.log(`Gateway listening on HTTPS :${HTTPS_PORT}`);
+});
+
+if (REDIRECT_HTTP) {
+  const redirectApp = express();
+  // Lightweight HTTP server that enforces HTTPS via permanent redirects.
+  redirectApp.disable('x-powered-by');
+  redirectApp.use((req, res) => {
+    const hostHeader = req.headers.host ?? 'localhost';
+    const hostname = hostHeader.split(':')[0] || 'localhost';
+    const portSuffix = PUBLIC_HTTPS_PORT === 443 ? '' : `:${PUBLIC_HTTPS_PORT}`;
+    const location = `https://${hostname}${portSuffix}${req.originalUrl}`;
+    res.redirect(308, location);
+  });
+
+  http.createServer(redirectApp).listen(HTTP_PORT, () => {
+    console.log(`Redirecting HTTP :${HTTP_PORT} -> HTTPS :${PUBLIC_HTTPS_PORT}`);
+  });
+}
 
 export default app;
 

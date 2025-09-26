@@ -103,9 +103,20 @@ services:
     env_file: ../../.env
     depends_on:
       service: { condition: service_healthy }
-    ports: [ "8081:8081" ]
+    environment:
+      - HTTP_PORT=8080
+      - HTTPS_PORT=8443
+      - PUBLIC_HTTPS_PORT=443
+      - REDIRECT_HTTP=true
+      - SSL_KEY_PATH=/certs/server.key
+      - SSL_CERT_PATH=/certs/server.crt
+    ports:
+      - "80:8080"
+      - "443:8443"
+    volumes:
+      - ../../certs:/certs:ro
     healthcheck:
-      test: ["CMD", "bash", "-c", "wget -qO- http://127.0.0.1:8081/health >/dev/null 2>&1"]
+      test: ["CMD", "bash", "-c", "wget -qO- --no-check-certificate https://127.0.0.1:8443/health >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 30
