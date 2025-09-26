@@ -6,10 +6,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -28,12 +30,15 @@ public class SeriesSearchService {
   private final RestTemplate restTemplate;
   private final ObjectMapper mapper;
   private final String baseUrl;
+  private final SeriesRepository seriesRepository;
 
   public SeriesSearchService(RestTemplate restTemplate,
       ObjectMapper mapper,
+      SeriesRepository seriesRepository,
       @Value("${search.opensearch.url:http://search:9200}") String baseUrl) {
     this.restTemplate = restTemplate;
     this.mapper = mapper;
+    this.seriesRepository = seriesRepository;
     this.baseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
     ensureIndex();
   }
@@ -62,11 +67,18 @@ public class SeriesSearchService {
 
       ResponseEntity<JsonNode> response = restTemplate.exchange(url, HttpMethod.POST, entity,
           JsonNode.class);
-      return parseResults(response.getBody());
+      List<SeriesSearchResult> results = parseResults(response.getBody());
+      if (!results.isEmpty()) {
+        return results;
+      }
+      log.debug("OpenSearch returned no results for query '{}'; falling back to database search", q);
+      return fallbackSearch(q, country, freq, page, pageSize);
     } catch (HttpClientErrorException.NotFound e) {
-      throw new NoSuchElementException("OpenSearch index not found: " + INDEX);
+      log.warn("OpenSearch index {} not found; falling back to database search", INDEX);
+      return fallbackSearch(q, country, freq, page, pageSize);
     } catch (Exception e) {
-      throw new RuntimeException("OpenSearch query failed", e);
+      log.warn("OpenSearch query failed: {}. Falling back to database search", e.getMessage());
+      return fallbackSearch(q, country, freq, page, pageSize);
     }
   }
 
@@ -158,6 +170,19 @@ public class SeriesSearchService {
       }
     }
     return results;
+  }
+
+  private List<SeriesSearchResult> fallbackSearch(String q, String country, Frequency freq, int page,
+      int pageSize) {
+    Character frequencyFilter = null;
+    if (freq != null && freq != Frequency.NATIVE) {
+      frequencyFilter = freq.name().charAt(0);
+    }
+    PageRequest pageable = PageRequest.of(Math.max(page - 1, 0), pageSize, Sort.by("name").ascending());
+    Page<Series> matches = seriesRepository.searchSeries(country, frequencyFilter, q, pageable);
+    return matches.stream()
+        .map(series -> new SeriesSearchResult(series.getSeriesId(), series.getName(), series.getDescription()))
+        .toList();
   }
 
   private void ensureIndex() {

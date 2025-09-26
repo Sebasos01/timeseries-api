@@ -1,6 +1,7 @@
 package app.series;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static java.util.Objects.requireNonNull;
 
 import java.util.List;
 import java.util.Map;
@@ -64,7 +65,7 @@ class SeriesDataControllerIT {
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(response.getHeaders().getETag()).isNotNull();
 
-    Map<String, Object> body = response.getBody();
+    Map<String, Object> body = requireNonNull(response.getBody());
     assertThat(body).isNotNull();
     assertThat(body.get("series_id")).isEqualTo("US.GDP.Q.NSA");
     assertThat(body.get("freq")).isEqualTo("Q");
@@ -134,7 +135,7 @@ class SeriesDataControllerIT {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
 
-    Map<String, Object> body = response.getBody();
+    Map<String, Object> body = requireNonNull(response.getBody());
     assertThat(body).isNotNull();
     assertThat(((Number) body.get("page")).intValue()).isEqualTo(2);
     assertThat(((Number) body.get("page_size")).intValue()).isEqualTo(5);
@@ -156,7 +157,7 @@ class SeriesDataControllerIT {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
 
-    Map<String, Object> body = response.getBody();
+    Map<String, Object> body = requireNonNull(response.getBody());
     assertThat(body).isNotNull();
     assertThat(body.get("error")).isEqualTo("Invalid frequency code. Supported values: native,D,W,M,Q,A.");
     assertThat(body.get("errorCode")).isEqualTo(1002);
