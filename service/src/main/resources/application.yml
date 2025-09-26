@@ -1,5 +1,12 @@
 server:
   port: 8080
+  server-header: ""
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: true
+        same-site: strict
 
 spring:
   threads:

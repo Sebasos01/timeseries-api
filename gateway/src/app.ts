@@ -4,6 +4,7 @@ import https from 'node:https';
 import path from 'node:path';
 
 import express, { Request, RequestHandler } from 'express';
+import type { CookieOptions } from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import compression from 'compression';
@@ -77,14 +78,57 @@ const parseIfNoneMatch = (header: string | string[] | undefined): string[] => {
 };
 
 app.disable('x-powered-by');
-app.use(helmet({
-  hsts: {
-    maxAge: 63072000,
-    includeSubDomains: true,
-    preload: true,
-  },
-}));
-app.use(cors({ origin: false }));          // locked-down; tune per UI host
+app.use(
+  helmet({
+    hsts: {
+      maxAge: 63072000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    contentSecurityPolicy: false,
+    frameguard: false,
+    referrerPolicy: false,
+    crossOriginOpenerPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: false,
+  }),
+);
+app.use(helmet.referrerPolicy({ policy: 'strict-origin-when-cross-origin' }));
+app.use(helmet.frameguard({ action: 'deny' }));
+app.use(helmet.crossOriginResourcePolicy({ policy: 'same-site' }));
+app.use(helmet.crossOriginOpenerPolicy({ policy: 'same-origin' }));
+app.use(helmet.crossOriginEmbedderPolicy());
+app.use((_, res, next) => {
+  res.setHeader('Permissions-Policy', 'geolocation=(), camera=(), microphone=()');
+  next();
+});
+app.use((req, res, next) => {
+  const originalCookie = res.cookie.bind(res);
+  const hardenedCookie: typeof res.cookie = (name, value, options?: CookieOptions) => {
+    const hardenedOptions: CookieOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      path: '/',
+      ...(options ?? {}),
+    };
+
+    if (hardenedOptions.sameSite === 'none') {
+      hardenedOptions.secure = true;
+    }
+
+    return originalCookie(name, value, hardenedOptions);
+  };
+
+  res.cookie = hardenedCookie;
+  next();
+});
+app.use(
+  cors({
+    origin: false, // locked-down; tune per UI host
+    credentials: false,
+  }),
+);
 app.use(compression());
 app.use(express.json({ limit: '256kb' }));
 app.use(limiter);

@@ -21,4 +21,15 @@ router.use('/docs/openapi.yaml', createProxyMiddleware({
   pathRewrite: { '^/docs/openapi.yaml': '/v3/api-docs.yaml' }
 }));
 
+// Backward-compatible proxies for the original Swagger UI endpoints.
+router.use(['/swagger-ui.html', '/swagger-ui/*'], createProxyMiddleware({
+  target: SERVICE,
+  changeOrigin: true,
+}));
+
+router.use(['/v3/api-docs', '/v3/api-docs/*'], createProxyMiddleware({
+  target: SERVICE,
+  changeOrigin: true,
+}));
+
 export default router;
