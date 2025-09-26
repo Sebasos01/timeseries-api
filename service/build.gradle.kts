@@ -4,7 +4,7 @@ plugins {
   java
 }
 
-group = "app"
+group = "com.ospicorp.timeseriesapi"
 version = "0.0.1-SNAPSHOT"
 
 java {
@@ -49,5 +49,6 @@ tasks.test {
 tasks.withType<JavaCompile>().configureEach {
   options.encoding = "UTF-8"
 }
+
 
 

@@ -55,11 +55,12 @@ logging:
   file:
     name: logs/api-requests.log
   level:
-    app.config.RequestLoggingFilter: INFO
+    com.ospicorp.timeseriesapi.config.RequestLoggingFilter: INFO
 
 search:
   opensearch:
     url: ${OPENSEARCH_URL:http://search:9200}
+
 
 
 
