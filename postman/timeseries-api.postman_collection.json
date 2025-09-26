@@ -244,15 +244,15 @@
     },
     {
       "key": "seriesId",
-      "value": "US.GDP.REAL.Q"
+      "value": "US.GDP.Q.NSA"
     },
     {
       "key": "startDate",
-      "value": "2020-01-01"
+      "value": "2018-03-31"
     },
     {
       "key": "endDate",
-      "value": "2024-12-31"
+      "value": "2023-12-31"
     },
     {
       "key": "asOfDate",
@@ -288,11 +288,11 @@
     },
     {
       "key": "pageSize",
-      "value": "50"
+      "value": "25"
     },
     {
       "key": "searchFields",
-      "value": "seriesId,name"
+      "value": "seriesId,name,description"
     }
   ]
 }

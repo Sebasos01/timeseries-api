@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.Comparator;
@@ -83,8 +84,11 @@ public class SeriesController {
               @Header(name = "RateLimit-Policy", description = "Quota policy", schema = @Schema(type = "string")),
               @Header(name = "X-RateLimit-Limit", description = "Maximum requests per window", schema = @Schema(type = "integer"))
           },
-          content = @Content(mediaType = "application/json",
-              schema = @Schema(implementation = Object.class))),
+          content = {
+              @Content(mediaType = "application/json",
+                  schema = @Schema(implementation = SeriesDataResponse.class)),
+              @Content(mediaType = "text/csv")
+          }),
       @ApiResponse(responseCode = "304", description = "Not modified"),
       @ApiResponse(responseCode = "400", description = "Bad request",
           content = @Content(mediaType = "application/problem+json",
@@ -107,8 +111,8 @@ public class SeriesController {
     Transform transformType = parseEnum(transform, Transform::valueOf, "transform");
     FillPolicy fillPolicy = parseEnum(fill, FillPolicy::valueOf, "fill");
 
-    var resp = svc.getData(id, start, end, asOf, frequency, transformType, fillPolicy);
-    String etag = svc.computeEtag(id, start, end, asOf, frequency, transformType, fillPolicy);
+    SeriesDataResult result = svc.getData(id, start, end, asOf, frequency, transformType, fillPolicy);
+    String etag = result.etag();
 
     String ifNoneMatch = currentRequestHeader(HttpHeaders.IF_NONE_MATCH);
     if (etag != null && etag.equals(ifNoneMatch)) {
@@ -118,10 +122,18 @@ public class SeriesController {
     }
 
     MediaType contentType = selectMediaType(accept);
-    return ResponseEntity.ok()
-        .eTag(etag)
-        .contentType(contentType)
-        .body(resp);
+    ResponseEntity.BodyBuilder builder = ResponseEntity.ok().eTag(etag);
+    Instant lastModified = result.lastModified();
+    if (lastModified != null) {
+      builder = builder.lastModified(lastModified.toEpochMilli());
+    }
+    builder = builder.contentType(contentType);
+
+    Object body = contentType.isCompatibleWith(CSV_MEDIA_TYPE)
+        ? result.points()
+        : result.response();
+
+    return builder.body(body);
   }
 
   @GetMapping("/search")
@@ -224,10 +236,3 @@ public class SeriesController {
     return null;
   }
 }
-
-
-
-
-
-
-
