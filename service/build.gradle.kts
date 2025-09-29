@@ -35,7 +35,7 @@ dependencies {
   runtimeOnly("org.flywaydb:flyway-database-postgresql")
 
   testImplementation("org.springframework.boot:spring-boot-starter-test")
-  testImplementation("io.swagger.parser.v3:swagger-parser:2.1.19")
+  testImplementation("io.swagger.parser.v3:swagger-parser:2.1.34")
 
   testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.3"))
   testImplementation("org.testcontainers:junit-jupiter")
