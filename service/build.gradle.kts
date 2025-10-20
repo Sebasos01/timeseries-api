@@ -37,7 +37,7 @@ dependencies {
   testImplementation("org.springframework.boot:spring-boot-starter-test")
   testImplementation("io.swagger.parser.v3:swagger-parser:2.1.19")
 
-  testImplementation(platform("org.testcontainers:testcontainers-bom:1.21.3"))
+  testImplementation(platform("org.testcontainers:testcontainers-bom:2.0.1"))
   testImplementation("org.testcontainers:junit-jupiter")
   testImplementation("org.testcontainers:postgresql")
 }
